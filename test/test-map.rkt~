@@ -1,6 +1,8 @@
 #lang racket
 (require "../core.ss")
-(require rackunit)
+(require (planet cce/fasttest:3:5/random)
+         (planet cce/fasttest:3:5/schemeunit)
+         rackunit)
 
 (define (number:compare a b)
   (cond [(= a b) 'equal]
