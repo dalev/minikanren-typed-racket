@@ -1,5 +1,5 @@
-#lang typed-racket
-(require racket/match)
+#lang typed-scheme
+(require scheme/match)
 
 (provide create mem size of-list to-list Comparator)
 

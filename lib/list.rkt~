@@ -1,4 +1,4 @@
-#lang racket/base
+#lang scheme/base
 (provide fold)
 
 (define (fold xs #:init init #:f combine)

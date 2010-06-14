@@ -1,5 +1,5 @@
-#lang scheme/base
-(require "test-red-black-depth.ss")
-(require "test-set.ss")
-(require "test-map.ss")
-(require "test-list.ss")
+#lang racket/base
+(require "test-red-black-depth.rkt")
+(require "test-set.rkt")
+(require "test-map.rkt")
+(require "test-list.rkt")

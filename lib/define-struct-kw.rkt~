@@ -1,7 +1,7 @@
-#lang racket
+#lang scheme
 (require (for-syntax unstable/syntax)
          (for-syntax syntax/struct)
-         (for-syntax racket/match))
+         (for-syntax scheme/match))
 
 (provide define-struct/kw)
 

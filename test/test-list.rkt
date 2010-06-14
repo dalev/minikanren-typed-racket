@@ -1,8 +1,8 @@
-#lang scheme
-(require "../core.ss")
+#lang racket
+(require "../core.rkt")
 (require (planet cce/fasttest:3:5/random)
          (planet cce/fasttest:3:5/schemeunit)
-         (planet schematics/schemeunit:3:4))
+         rackunit)
 
 (define numbers (build-list 1000000 (lambda (x) x)))
 
