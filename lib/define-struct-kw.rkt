@@ -78,7 +78,7 @@
        (eq? (fish-dead? f) (fish-dead? g))))
 
 (match (create-fish #:dead? #t #:weight 7 #:color 'red)
-  [(struct fish (a b c)) (list a b c)])
+  [(fish a b c) (list c b a)])
 
 (equal? (match (create-fish #:dead? #t #:weight 7 #:color 'red)
           [(struct* fish ([weight a] [dead? b] [color c])) (list a b c)])

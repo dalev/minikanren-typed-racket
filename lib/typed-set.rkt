@@ -1,4 +1,4 @@
-#lang typed-racket
+#lang typed/racket
 (require racket/match)
 
 (provide create mem size of-list to-list Comparator)
