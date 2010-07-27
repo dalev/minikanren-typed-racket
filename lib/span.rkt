@@ -14,12 +14,12 @@
 
 (struct span (seconds))
 
-(define (of-sec seconds) (make-span seconds))
+(define (of-sec seconds) (span seconds))
 (define (of-min minutes) (of-sec (* minutes 60)))
 (define (of-hour hours) (of-min (* hours 60)))
 (define (of-day days) (of-hour (* days 24)))
 
 (define (scale span factor)
-  (make-span (* factor (span-seconds span))))
+  (span (* factor (span-seconds span))))
 
-(define (add s s*) (make-span (+ (span-seconds s) (span-seconds s*))))
+(define (add s s*) (span (+ (span-seconds s) (span-seconds s*))))
