@@ -1,7 +1,11 @@
-#lang racket/base
-(provide fold)
+#lang typed/racket/base
+(require racket/list)
+(provide rev-append
+         (all-from-out racket/list))
 
-(define (fold xs #:init init #:f combine)
-  (for/fold ([init init]) ([x (in-list xs)]) (combine init x)))
+(: rev-append (All (a) ((Listof a) (Listof a) * -> (Listof a))))
+(define (rev-append xs . more-lists)
+  (for/fold: : (Listof a) ([result : (Listof a) xs]) ([ys (in-list more-lists)])
+    (for/fold: : (Listof a) ([result : (Listof a) result]) ([y (in-list ys)])
+      (cons y result))))
 
-(define (exists? xs #:f ?) (for/or ([x (in-list xs)]) (? x)))

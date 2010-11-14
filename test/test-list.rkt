@@ -1,7 +1,8 @@
 #lang racket
-(require "../core.rkt")
+(require "../main.rkt")
 (require rackunit)
 
-(define numbers (build-list 1000000 (lambda (x) x)))
+(define numbers (build-list 1000 (lambda (x) x)))
 
-(check-= (time (list:fold numbers #:init 0 #:f +)) (* 1000000 999999 1/2) 0)
+(check-equal? (list:rev-append numbers numbers)
+              (append (reverse numbers) numbers))

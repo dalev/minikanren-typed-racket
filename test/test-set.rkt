@@ -1,5 +1,5 @@
 #lang racket
-(require "../core.ss")
+(require "../main.rkt")
 (require rackunit)
 
 (define (number:compare a b)
