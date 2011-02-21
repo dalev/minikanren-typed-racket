@@ -1,6 +1,12 @@
 #lang typed/racket/base
-(require racket/list)
+(require (except-in racket/list
+                    partition))
+(require/typed racket/list
+  [partition (All (a) ((a -> Boolean) (Listof a) -> (values (Listof a) (Listof a))))])
+
 (provide rev-append
+         map
+         partition
          (all-from-out racket/list))
 
 (: rev-append (All (a) ((Listof a) (Listof a) * -> (Listof a))))

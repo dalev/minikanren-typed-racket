@@ -1,14 +1,28 @@
-#lang racket/base
+#lang racket
+(require (planet jaymccarthy/sqlite)
+         (planet dalev/core/lib/string))
 
-;; degenerate implementation
-(define (read-csv-row port)
-  (let ([line (read-line)])
-    (if (eof-object? line)
-      line
-      (regexp-split #rx"," line))))
+(provide (all-defined-out))
 
-(with-input-from-file (expand-user-path (build-path "~" "test.csv"))
-  (lambda ()
-    (for ([row (in-port read-csv-row)])
-      (display row)
-      (newline))))
+(define (csv->db csv-path #:db [db ':memory:])
+  (define *db* (open db))
+  (exec/ignore *db* "create table temp_csv(a integer, b text)")
+  (define insert-stmt
+    (prepare *db* "insert into temp_csv(a, b) values(?, ?)"))
+  (with-transaction (*db* _fail)
+    (call-with-input-file
+      csv-path
+      (λ (in)
+        (for ([line (in-lines in)])
+          (match-define (list a b) (split #:on #\, line))
+          (run insert-stmt a b)))))
+  (finalize insert-stmt)
+  *db*)
+
+;; For testing
+(define (create-words-csv)
+  (call-with-input-file
+    (build-path "/" "usr" "share" "dict" "words")
+    (λ (in)
+      (for ([word (in-port read-line in)])
+        (printf "~a,~a~n" (string-length word) word)))))
