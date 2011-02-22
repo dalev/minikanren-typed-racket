@@ -3,3 +3,4 @@
 (require "test-set.rkt")
 (require "test-map.rkt")
 (require "test-list.rkt")
+(require "test-string.rkt")
