@@ -13,3 +13,6 @@
 
 (require (prefix-in string: "lib/string.rkt"))
 (provide (all-from-out "lib/string.rkt"))
+
+(require (prefix-in csv: "lib/csv.rkt"))
+(provide (all-from-out "lib/csv.rkt"))
