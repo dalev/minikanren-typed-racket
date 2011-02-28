@@ -8,6 +8,9 @@
 
 (define (record-separator? c) (char=? c #\newline))
 
+;; CR dalev: implement a nicer CSV interface that represents records as maps,
+;;           allow a header to be supplied / used as override
+
 ;; CR dalev: skip blank lines
 ;; CR dalev: don't overrun field-buffer
 (define (in-raw-csv in #:separator [separator #\,] #:reverse? [reverse? false]) 
@@ -15,59 +18,53 @@
   (define rev (if reverse? values reverse))
 
   (define field-buffer (make-string 1024 #\space))
-  (define buffer-position 0)
-  (define (buffer! c) 
-    ;; Could use unsafe op if the loop took care of counting the characters
-    ;; and resizing the buffer
-    (string-set! field-buffer buffer-position c)
-    (set! buffer-position (add1 buffer-position)))
-  (define (buffer-clear!) (set! buffer-position 0))
-  (define (buffer->string) (substring field-buffer 0 buffer-position))
 
-  (define (emit-field!)
-    (let ([x (buffer->string)])
-      (buffer-clear!)
-      x))
+  (define (buffer! buf-idx c) 
+    (string-set! field-buffer buf-idx c))
 
-  (define (yield! csv-fields)
-    (yield (rev (cons (emit-field!) csv-fields)))
-    (values 'start-field '()))
+  (define (emit-field! buf-idx)
+    (substring field-buffer 0 buf-idx))
+
+  (define (yield! csv-fields buf-idx)
+    (yield (rev (cons (emit-field! buf-idx) csv-fields)))
+    (values 'start-field '() 0))
 
   (in-generator
     (for/fold ([state 'start-field]
-               [csv-fields '()])
+               [csv-fields '()]
+               [buf-idx 0])
               ([c (in-input-port-chars in)])
       (case state
-        [(start-field) 
-         (cond [(char=? separator c) 
-                (values 'start-field (cons (emit-field!) csv-fields))]
-               [(char=? #\" c)
-                (values 'in-quoted-field csv-fields)]
-               [(record-separator? c) 
-                (yield! csv-fields)]
-               [else 
-                 (buffer! c)
-                 (values 'in-field csv-fields)])]
         [(in-field) 
          (cond [(char=? c separator) 
-                (values 'start-field (cons (emit-field!) csv-fields))]
+                (values 'start-field (cons (emit-field! buf-idx) csv-fields) 0)]
                [(record-separator? c) 
-                (yield! csv-fields)]
-               [else (buffer! c)
-                     (values 'in-field csv-fields)])]
+                (yield! csv-fields buf-idx)]
+               [else (buffer! buf-idx c)
+                     (values 'in-field csv-fields (add1 buf-idx))])]
+        [(start-field) 
+         (cond [(char=? separator c) 
+                (values 'start-field (cons (emit-field! buf-idx) csv-fields) 0)]
+               [(char=? #\" c)
+                (values 'in-quoted-field csv-fields buf-idx)]
+               [(record-separator? c) 
+                (yield! csv-fields buf-idx)]
+               [else 
+                 (buffer! buf-idx c)
+                 (values 'in-field csv-fields (add1 buf-idx))])]
         [(in-quoted-field) 
          (cond [(char=? c #\")
-                (values 'in-quoted-field-after-quote csv-fields)]
-               [else (buffer! c)
-                     (values 'in-quoted-field csv-fields)])]
+                (values 'in-quoted-field-after-quote csv-fields buf-idx)]
+               [else (buffer! buf-idx c)
+                     (values 'in-quoted-field csv-fields (add1 buf-idx))])]
         [(in-quoted-field-after-quote) 
          (cond [(char=? c #\")
-                (buffer! c)
-                (values 'in-quoted-field csv-fields)]
+                (buffer! buf-idx c)
+                (values 'in-quoted-field csv-fields (add1 buf-idx))]
                [(char=? separator c)
-                (values 'start-field (cons (emit-field!) csv-fields))]
+                (values 'start-field (cons (emit-field! buf-idx) csv-fields) 0)]
                [(record-separator? c) 
-                (yield! csv-fields)]
+                (yield! csv-fields buf-idx)]
                [(raise (exn:fail "Expected double-quote or separator"
                                  (current-continuation-marks)))])]))))
                 
