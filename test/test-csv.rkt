@@ -21,8 +21,6 @@
                   [record  (in-list records)])
         record))))
 
-(displayln records1)
-
 (check-true (> (length records1) 0))
 
 (check-equal? (length records1) (length records2))
