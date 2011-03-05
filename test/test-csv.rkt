@@ -9,15 +9,19 @@
   (call-with-input-file 
     test.csv
     (λ (in)
-      (for/list ([record (csv:in-raw-csv in)])
+      (for*/list ([records (csv:in-raw-csv-chunks in)]
+                  [record  (in-list records)])
         record))))
 
 (define records2
   (call-with-input-file 
     test.csv
     (λ (in)
-      (for/list ([record (csv:in-raw-csv in #:reverse? #t)])
+      (for*/list ([records (csv:in-raw-csv-chunks in #:reverse? #t)]
+                  [record  (in-list records)])
         record))))
+
+(displayln records1)
 
 (check-true (> (length records1) 0))
 
