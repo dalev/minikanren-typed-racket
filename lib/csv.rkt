@@ -16,7 +16,6 @@
 ;;           allow a header to be supplied / used as override
 
 ;; CR dalev: skip blank lines
-;; CR dalev: don't overrun field-buffer
 (define (in-raw-csv-chunks in 
                            #:separator [separator #\,] 
                            #:reverse? [reverse? false]
@@ -24,11 +23,17 @@
 
   (define rev (if reverse? values reverse))
 
-  (define field-buffer (make-bytes 1024))
+  (define field-buffer (make-bytes 256))
+
+  (define (double-field-buffer!)
+    (let* ([current-length (bytes-length field-buffer)]
+           [new-buffer (make-bytes (* 2 current-length))])
+      (bytes-copy! new-buffer 0 field-buffer)
+      (set! field-buffer new-buffer)))
 
   (define (buffer! buf-idx c) 
     (when (>= buf-idx (unsafe-bytes-length field-buffer))
-      (error 'buffer! "need to resize field-buffer"))
+      (double-field-buffer!))
     (unsafe-bytes-set! field-buffer buf-idx c))
 
   (define (emit-field! buf-idx)
