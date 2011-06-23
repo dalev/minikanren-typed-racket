@@ -4,7 +4,15 @@
          racket/unsafe/ops)
 
 (provide/contract
-  [in-raw-csv-chunks 
+  [in-records
+    ((input-port?) (#:separator char? #:buffer-size fixnum?) 
+     . ->* . 
+     sequence?)]
+  [in-raw
+    ((input-port?) (#:reverse? boolean? #:separator char? #:buffer-size fixnum?) 
+     . ->* . 
+     sequence?)]
+  [in-raw-chunks 
     ((input-port?) (#:reverse? boolean? #:separator char? #:buffer-size fixnum?) 
      . ->* . 
      sequence?)])
@@ -12,14 +20,42 @@
 (define byte-double-quote (char->integer #\"))
 (define (double-quote? byte) (eq? byte byte-double-quote))
 
-;; CR dalev: implement a nicer CSV interface that represents records as maps,
-;;           allow a header to be supplied / used as override
+(define *default-buffer-size* (* 8 1024))
+(define *default-separator* #\,)
+
+(define (in-records in 
+                    #:separator [separator *default-separator*]
+                    #:buffer-size [buffer-size *default-buffer-size*])
+  (define *header* #f)
+  (in-generator
+    (for ([chunk (in-raw-chunks in 
+                                #:separator separator
+                                #:buffer-size buffer-size)])
+      (for ([row (in-list chunk)])
+        (if *header*
+          (yield 
+            (for/hash ([key (in-list *header*)]
+                       [val (in-list row)])
+              (values key val)))
+          (set! *header* row))))))
+
+(define (in-raw in
+                #:separator [separator *default-separator*] 
+                #:reverse? [reverse? false]
+                #:buffer-size [buffer-size *default-buffer-size*])
+  (in-generator
+    (for* ([records (in-raw-chunks in 
+                                   #:separator separator
+                                   #:reverse? reverse?
+                                   #:buffer-size buffer-size)]
+           [record (in-list records)])
+          (yield record))))
 
 ;; CR dalev: skip blank lines
-(define (in-raw-csv-chunks in 
-                           #:separator [separator #\,] 
-                           #:reverse? [reverse? false]
-                           #:buffer-size [buffer-size (* 8 1024)]) 
+(define (in-raw-chunks in 
+                       #:separator [separator *default-separator*] 
+                       #:reverse? [reverse? false]
+                       #:buffer-size [buffer-size *default-buffer-size*]) 
 
   (define rev (if reverse? values reverse))
 
