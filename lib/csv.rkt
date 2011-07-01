@@ -1,6 +1,5 @@
 #lang racket
-(require (planet jaymccarthy/sqlite)
-         racket/generator
+(require racket/generator
          racket/unsafe/ops)
 
 (provide/contract
