@@ -18,3 +18,12 @@
 
 (check-false (string:rsplit2 "a,b,c" #:on #\tab))
 
+(check-true (string:suffix? "foo.txt" #:suffix ".txt"))
+(check-true (string:suffix? "foo.txt" #:suffix ""))
+(check-true (string:suffix? "foo.txt" #:suffix "foo.txt"))
+(check-false (string:suffix? "foo.txt" #:suffix ".rkt"))
+(check-false (string:suffix? "short" #:suffix "blahblahshort"))
+
+(check-equal? (string:chop-suffix "foo.txt" #:suffix ".txt") "foo")
+(check-false (string:chop-suffix "foo.txt" #:suffix ".rkt"))
+              

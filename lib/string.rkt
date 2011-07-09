@@ -6,7 +6,9 @@
   [split (string? #:on char? . -> . (listof string?))]
   [lsplit2 (string? #:on char? . -> . (or/c (cons/c string? string?) false/c))]
   [rsplit2 (string? #:on char? . -> . (or/c (cons/c string? string?) false/c))]
-  [concat (->* ((listof string?)) (#:sep string?) string?)])
+  [concat (->* ((listof string?)) (#:sep string?) string?)]
+  [suffix? (string? #:suffix string? . -> . boolean?)]
+  [chop-suffix (string? #:suffix string? . -> . (or/c string? false/c))])
 
 (define (lsplit2 str #:on on)
   (define on-idx
@@ -50,3 +52,18 @@
 
 (define (concat strings #:sep [sep ""])
   (string-join strings sep))
+
+(define (suffix? str #:suffix suffix)
+  (if (string=? suffix "")
+    #t
+    (let ([suffix-len (string-length suffix)]
+          [str-len (string-length str)])
+      (and (<= suffix-len str-len)
+           (for/and ([a (in-string suffix (sub1 suffix-len) 0 -1)]
+                     [b (in-string str (sub1 str-len) 0 -1)])
+             (char=? a b))))))
+
+(define (chop-suffix str #:suffix suffix)
+  (and (suffix? str #:suffix suffix)
+       (substring str 0 (- (string-length str)
+                           (string-length suffix)))))
