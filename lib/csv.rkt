@@ -19,6 +19,8 @@
 (define byte-double-quote (char->integer #\"))
 (define (double-quote? byte) (eq? byte byte-double-quote))
 
+(define *byte-space* (char->integer #\space))
+
 (define *default-buffer-size* (* 8 1024))
 (define *default-separator* #\,)
 
@@ -50,7 +52,6 @@
            [record (in-list records)])
           (yield record))))
 
-;; CR dalev: skip blank lines
 (define (in-raw-chunks in 
                        #:separator [separator *default-separator*] 
                        #:reverse? [reverse? false]
@@ -74,10 +75,16 @@
   (define (emit-field! buf-idx)
     (bytes->string/locale (subbytes field-buffer 0 buf-idx)))
 
+  (define (field-buffer-blank? #:length len)
+    (for/and ([byte (in-bytes field-buffer 0 len)])
+      (= byte *byte-space*)))
+
   (define (yield! csv-fields buf-idx rows)
     (values 'start-field '() 0
-            (cons (rev (cons (emit-field! buf-idx) csv-fields))
-                  rows)))
+            (if (and (null? csv-fields) (field-buffer-blank? #:length buf-idx))
+              '()
+              (cons (rev (cons (emit-field! buf-idx) csv-fields))
+                    rows))))
 
   (define input-bytes (make-bytes buffer-size))
 
