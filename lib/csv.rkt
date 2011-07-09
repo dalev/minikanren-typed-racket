@@ -3,6 +3,7 @@
          racket/unsafe/ops)
 
 (provide/contract
+  ;; CR dalev: in-records should allow the user to provide a header specification
   [in-records
     ((input-port?) (#:separator char? #:buffer-size fixnum?) 
      . ->* . 
