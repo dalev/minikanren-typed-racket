@@ -1,14 +1,15 @@
 #lang racket/base
 (require racket/contract
-         racket/string)
+         racket/string
+         "maybe.rkt")
 
 (provide/contract
   [split (string? #:on char? . -> . (listof string?))]
-  [lsplit2 (string? #:on char? . -> . (or/c (cons/c string? string?) false/c))]
-  [rsplit2 (string? #:on char? . -> . (or/c (cons/c string? string?) false/c))]
+  [lsplit2 (string? #:on char? . -> . (maybe/c (cons/c string? string?)))]
+  [rsplit2 (string? #:on char? . -> . (maybe/c (cons/c string? string?)))]
   [concat (->* ((listof string?)) (#:sep string?) string?)]
   [suffix? (string? #:suffix string? . -> . boolean?)]
-  [chop-suffix (string? #:suffix string? . -> . (or/c string? false/c))])
+  [chop-suffix (string? #:suffix string? . -> . (maybe/c string?))])
 
 (define (lsplit2 str #:on on)
   (define on-idx
