@@ -1,3 +1,4 @@
+
 #lang racket
 (require (for-syntax unstable/syntax)
          (for-syntax syntax/struct)
@@ -76,10 +77,11 @@
   (and (= (fish-weight f) (fish-weight g))
        (eq? (fish-color f) (fish-color g))
        (eq? (fish-dead? f) (fish-dead? g))))
-
+#;
 (match (create-fish #:dead? #t #:weight 7 #:color 'red)
   [(fish a b c) (list c b a)])
 
+#;
 (equal? (match (create-fish #:dead? #t #:weight 7 #:color 'red)
           [(struct* fish ([weight a] [dead? b] [color c])) (list a b c)])
         (list 7 #t 'red))
