@@ -19,6 +19,8 @@
   [contains? (trie/c nonempty-string/c . -> . boolean?)]
   [of-file (() (#:path path?) . ->* . trie/c)])
 
+;; CR dalev: implement the sequence interface
+
 (define (create) (make-hasheqv))
 
 (define (contains? t word)
