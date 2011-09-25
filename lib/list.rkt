@@ -7,7 +7,8 @@
 (provide rev-append
          map
          partition
-         (all-from-out racket/list))
+         (all-from-out racket/list)
+         )
 
 (: rev-append (All (a) ((Listof a) (Listof a) * -> (Listof a))))
 (define (rev-append xs . more-lists)

@@ -68,3 +68,4 @@
   (and (suffix? str #:suffix suffix)
        (substring str 0 (- (string-length str)
                            (string-length suffix)))))
+

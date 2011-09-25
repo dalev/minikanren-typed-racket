@@ -8,6 +8,9 @@
 (require (prefix-in list: "lib/list.rkt"))
 (provide (all-from-out "lib/list.rkt"))
 
+(require (prefix-in list: "lib/list-untyped.rkt"))
+(provide (all-from-out "lib/list-untyped.rkt"))
+
 (require (prefix-in symbol: "lib/symbol.rkt"))
 (provide (all-from-out "lib/symbol.rkt"))
 
