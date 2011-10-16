@@ -1,5 +1,5 @@
 #lang racket/base
-(require "mk-skew.rkt")
+(require "../main.rkt")
   (provide
     run-all-mktests run-all-mktests-short run-logo appendo test-check errorf)
 

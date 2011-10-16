@@ -1,5 +1,5 @@
 #lang racket/base
-(require "mk-skew.rkt")
+(require "../main.rkt")
 (provide zebrao test-zebra)
 
 (define nullo
