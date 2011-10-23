@@ -1,34 +1,185 @@
 #lang racket/base
-(require "skew-bral.rkt")
+(require
+  (for-syntax racket/base
+              syntax/parse))
 (provide
-  lambdaf@ lambdag@
-    unify-check-sv unify-check-mv unify-sv unify-mv
-    size-s
-    run* var?
-    empty-s ext-s-check occurs-check
-    walk* reify-s reify-name reify ==-check mzero inc choice
-    case-inf run take == bind* bind unify
-    conde mplus* mplus conda ifa condu ifu project succeed fail
-    walk exist ext-s safe-walk unify-check unify-safe
-    )
+  == ==-check conde condi conda condu
+  all alli
+  fail succeed
+  exist run run*
+  project
+  )
+
+#|  Skew BRAL impl |#
+(require racket/fixnum)
+  (struct node (val even odd))
+  (struct var (name idx))
+
+  ; -- public 
+
+  (define k:empty '(0))
+
+  (define k:size
+    (lambda (ls)
+      (car ls)))
+
+  (define (k:new-var name ls)
+    (let ([x (var name (car ls))])
+      (values x (k:associate x ls))))
+
+  (define k:associate
+    (lambda (v ls)
+      (cons (fx+ 1 (car ls)) (skew-bind v (cdr ls)))))
+
+  (define from-tail
+    (lambda (i ls)
+      (fx- (fx- (car ls) 1) i)))
+
+  (define k:lookup
+    (lambda (v ls)
+      (lookup (from-tail (var-idx v) ls) (cdr ls))))
+
+  (define k:update
+    (lambda (a-var v ls)
+      (cons (car ls) (update (from-tail (var-idx a-var) ls) v (cdr ls)))))
+
+  (define k:get-value
+    (lambda (v)
+      (cond
+        [(node? v) (node-val v)]
+        [else (car v)])))
+
+  ; --- helpers
+  
+  (define (fxzero? x) (fx= x 0))
+
+  (define shift (lambda (n) (fxrshift n 1)))
+
+  ;; CR dalev: horrifying code
+  (define skew-bind
+    (lambda (v ls)
+      (cond
+        [(and (pair? ls) (pair? (cdr ls)) (fx= (caar ls) (caadr ls)))
+         (cons `(,(fx+ 1 (fx+ (caar ls) (caadr ls)))
+                  . ,(node v (cdar ls) (cdadr ls))) (cddr ls))]
+        [else (cons `(1 . ,v) ls)])))
+
+  (define lookup-tree
+    (lambda (w i t)
+      (cond
+        [(node? t)
+         (if (fxzero? i) t ;(node-val t)
+             (let [(w/2 (shift w))]
+               (if (fx<= i w/2)
+                   (lookup-tree w/2 (fx- i 1) (node-even t))
+                   (lookup-tree w/2 (fx- (fx- i 1) w/2) (node-odd t)))))]
+        [else (if (fxzero? i) (cons t '()) #f)])))
+        ;[else (if (fxzero? i) t (error 'lookup-tree "illegal index"))])))
+
+  (define lookup
+    (lambda (i ls)
+      (cond
+        [(null? ls) #f]
+        ;[(null? ls) (error 'k:lookup "illegal index")]
+        [else (let [(t (car ls))]
+                (if (fx< i (car t))
+                    (lookup-tree (car t) i (cdr t))
+                    (lookup (fx- i (car t)) (cdr ls))))])))
+
+  (define update-tree
+    (lambda (w i v t)
+      (cond
+        [(node? t)
+         (if (fxzero? i) (node v (node-even t) (node-odd t))
+             (let [(w/2 (shift w))]
+               (if (fx<= i w/2)
+                   (node (node-val t)
+                              (update-tree w/2 (fx- i 1) v (node-even t))
+                              (node-odd t))
+                   (node (node-val t)
+                              (node-even t)
+                              (update-tree w/2 (fx- (fx- i 1) w/2) v (node-odd t))))))]
+        [else (if (fxzero? i) v (error 'update-tree "illegal index"))])))
+
+  (define update
+    (lambda (i v ls)
+      (cond
+        [(null? ls) (error 'k:update "illegal index ~s ~s" i v)]
+        [else (let [(t (car ls))]
+                (if (fx< i (car t))
+                    (cons `(,(car t) . ,(update-tree (car t) i v (cdr t))) (cdr ls))
+                    (cons t (update (fx- i (car t)) v (cdr ls)))))])))
+#| end |#
+
+(define empty-s k:empty)
+(define ext-s k:update)
+(define size-s k:size)
 
 (define-syntax lambdag@
   (syntax-rules ()
-    ((_ (p) e) (lambda (p) e))))
+    ((_ (s) e) (lambda (s) e))))
 
 (define-syntax lambdaf@
   (syntax-rules ()
     ((_ () e) (lambda () e))))
 
+(define-syntax rhs
+  (syntax-rules ()
+    ((rhs p) (cdr p))))
+
+(define-syntax lhs
+  (syntax-rules ()
+    ((lhs p) (car p))))
+
+(define unify
+  (lambda (v^ w^ s)
+    (let ([v (walk v^ s)]
+          [w (walk w^ s)])
+      (cond
+        [(eq? v w) s]
+        [(var? v) (ext-s v w s)]
+        [(var? w) (ext-s w v s)]
+        [(and (pair? v) (pair? w))
+          (let ((s (unify (car v) (car w) s)))
+            (and s (unify (cdr v) (cdr w) s)))]
+        [(equal? v w) s]
+        [else #f]))))
+
+(define-syntax project
+  (syntax-rules ()
+    ((_ (x ...) g ...)
+     (lambdag@ (s)
+               (let ((x (walk* x s)) ...)
+                 ((all g ...) s))))))
+
+(define-syntax (exist stx)
+  (syntax-parse stx
+    [(_ (x ...) g0 g ...)
+      #'(λ (s)
+          (let*-values ([(x s) (k:new-var 'x s)] ...)
+            ((all g0 g ...) s)))]))
+
+(define (take n f)
+  (if (and n (zero? n))
+    '()
+    (case-inf (f)
+              '()
+              [(a) a]
+              [(a f)
+               (cons (car a)
+                     (take (and n (- n 1)) f))])))
+
+(define-syntax (run stx)
+  (syntax-parse stx
+    [(_ n (x) g0 g ...)
+     #'(take n
+             (λ ()
+               ((exist (x) g0 g ... (λ (a) (list (reify^ x a))))
+                empty-s)))]))
+
 (define-syntax run*
   (syntax-rules ()
     ((_ (x) g ...) (run #f (x) g ...))))
-
-;;;----------------------------------------------------------
-;;; Various versions of walk for comparison testing.
-;;;----------------------------------------------------------
-
-;;-- O(n) algorithms -----------------------------------------
 
 ;; walk based on skew binary random access lists
 (define (walk v s)
@@ -44,9 +195,9 @@
        [else v])]
     [else v]))
 
-;;-------------------------------------------------------------------
+(define safe-walk walk)
 
-(define (unify-check-sv u v s)
+(define (unify-check u v s)
   (let ([u (walk u s)]
         [v (walk v s)])
     ;;(let ((u (safe-walk u s))
@@ -56,65 +207,42 @@
       [(var? u) (ext-s-check u v s)]
       [(var? v) (ext-s-check v u s)]
       [(and (pair? u) (pair? v))
-        (let ([s (unify-check-sv (car u) (car v) s)])
-          (and s (unify-check-sv (cdr u) (cdr v) s)))]
+        (let ([s (unify-check (car u) (car v) s)])
+          (and s (unify-check (cdr u) (cdr v) s)))]
       [(equal? u v) s]
       [else #f])))
 
-(define unify-check-mv
-  (lambda (u v s)
-    (let*-values ([(u s^) (walk u s)]
-                  [(v s) (walk v s^)])
-      ;;(let ((u (safe-walk u s))
-      ;;(v (safe-walk v s)))
-      (cond
-        ((eq? u v) s)
-        ((var? u) (ext-s-check u v s))
-        ((var? v) (ext-s-check v u s))
-        ((and (pair? u) (pair? v))
-          (let ((s (unify-check-mv
-                    (car u) (car v) s)))
-            (and s (unify-check-mv
-                    (cdr u) (cdr v) s))))
-        ((equal? u v) s)
-        (else #f)))))
+(define (ext-s-check x v s)
+  (cond
+    [(occurs-check x v s) #f]
+    [else (ext-s x v s)]))
 
-(define ext-s-check
-  (lambda (x v s)
+(define (occurs-check x v s)
+  (let ([v (safe-walk v s)])
     (cond
-      [(occurs-check x v s) #f]
-      [else (ext-s x v s)])))
+      [(var? v) (eq? v x)]
+      [(pair? v)
+       (or
+         (occurs-check x (car v) s)
+         (occurs-check x (cdr v) s))]
+      [else #f])))
 
-(define occurs-check
-  (lambda (x v s)
-    (let ([v (safe-walk v s)])
-      (cond
-        [(var? v) (eq? v x)]
-        [(pair? v)
-          (or
-            (occurs-check x (car v) s)
-            (occurs-check x (cdr v) s))]
-        [else #f]))))
-
-(define walk*
-  (lambda (w s)
-    (let ((v (safe-walk w s)))
-      (cond
-        ((var? v) v)
-        ((pair? v)
-          (cons
-            (walk* (car v) s)
-            (walk* (cdr v) s)))
-        (else v)))))
+(define (walk* w s)
+  (let ([v (safe-walk w s)])
+    (cond
+      [(var? v) v]
+      [(pair? v)
+       (cons
+         (walk* (car v) s)
+         (walk* (cdr v) s))]
+      [else v])))
 
 (define reify-s
   (lambda (v s)
-    (let ((v (safe-walk v s)))
+    (let ((v (walk v s)))
       (cond
-        ((var? v)
-          (ext-s v (reify-name (size-s s)) s))
-        ((pair? v) (reify-s (cdr v)
-                            (reify-s (car v) s)))
+        ((var? v) (ext-s v (reify-name (size-s s)) s))
+        ((pair? v) (reify-s (cdr v) (reify-s (car v) s)))
         (else s)))))
 
 (define reify-name
@@ -122,233 +250,186 @@
     (string->symbol
       (string-append "_" "." (number->string n)))))
 
-(define rc -1)
-(define rl '())
 (define reify
-  (lambda (v s)
-    (set! rc -1)
-    (set! rl '())
-    (let loop [(v v)]
-      (let ((v (safe-walk v s)))
-        (cond
-          ((assq v rl) => (lambda (a) (cdr a)))
-          ((var? v) (begin (set! rc (add1 rc))
-                            (let [(n (cons v (reify-name rc)))]
-                              (set! rl (cons n rl))
-                              (cdr n))))
-          ((pair? v)
-            (let [(c (loop (car v)))]
-              (cons c (loop (cdr v)))))
-          (else v))))))
+  (lambda (v)
+    (walk* v (reify-s v empty-s))))
 
-(define ==-check
-  (lambda (v w)
-    (lambdag@ (a)
-      (unify-check v w a))))
+(define (reify^ v s)
+  (walk* v (reify-s v s)))
 
-(define mzero #f)
-
-(define-syntax inc
-  (syntax-rules () ((_ e) (lambdaf@ () e))))
-
-(define choice cons)
+#;
+(define-syntax run  
+  (syntax-rules ()
+    ((_ n^ (x) g ...)
+     (let ((n n^) (x (var 'x)))
+       (if (or (not n) (> n 0))
+         (map-inf n
+           (lambda (s) (reify (walk* x s)))
+           ((all g ...) empty-s))
+         '())))))
 
 (define-syntax case-inf
   (syntax-rules ()
-    ((_ e (() e0) ((f^) e1) ((a^) e2) ((a f) e3))
-      (let ((a-inf e))
-        (cond
-          ((not a-inf) e0)
-          ((procedure? a-inf)  (let ((f^ a-inf)) e1))
-          ((not (and (pair? a-inf)
-                     (procedure? (cdr a-inf))))
-           (let ((a^ a-inf)) e2))
-          (else (let ((a (car a-inf)) (f (cdr a-inf)))
-                  e3)))))))
+    ((_ e on-zero ((a^) on-one) ((a f) on-choice))
+     (let ((a-inf e))
+       (cond
+         ((not a-inf) on-zero)
+         ((not (and 
+                 (pair? a-inf)
+                 (procedure? (cdr a-inf))))
+          (let ((a^ a-inf))
+            on-one))
+         (else (let ((a (car a-inf))
+                     (f (cdr a-inf)))
+                 on-choice)))))))
 
-(define-syntax run
+(define-syntax mzero
   (syntax-rules ()
-    ((_ n (x) g0 g ...)
-      (take n
-            (inc
-              ((exist (x) g0 g ...
-                      (lambdag@ (a)
-                        (cons (reify x a) '())))
-              empty-s))))))
+    ((_) #f)))
 
-(define take
-  (lambda (n f)
-    (if (and n (zero? n))
-        '()
-        (case-inf (f)
-                  (() '())
-                  ((f) (take n f))
-                  ((a) a)
-                  ((a f)
-                    (cons (car a)
-                          (take (and n (- n 1)) f)))))))
-
-(define ==
-  (lambda (u v)
-    (lambdag@ (a)
-      (unify u v a))))
-
-(define-syntax exist
+(define-syntax unit
   (syntax-rules ()
-    ((_ (x ...) g0 g ...)
-      (lambdag@ (s)
-        (inc
-          (let*-values ([(x s) (k:new-var 'x s)] ...)
-            (bind* (g0 s) g ...)))))))
+    ((_ a) a)))
 
-(define-syntax bind*
+(define-syntax choice 
   (syntax-rules ()
-    ((_ e) e)
-    ((_ e g0 g ...) (bind* (bind e g0) g ...))))
+    ((_ a f) (cons a f))))
+
+(define map-inf
+  (lambda (n p a-inf)
+    (case-inf a-inf
+      '()
+      ((a) 
+       (cons (p a) '()))
+      ((a f) 
+       (cons (p a)
+         (cond
+           ((not n) (map-inf n p (f)))
+           ((> n 1) (map-inf (- n 1) p (f)))
+           (else '())))))))
+
+(define == 
+  (lambda (v w)
+    (lambdag@ (s)
+      (cond
+        ((unify v w s) => succeed)
+        (else (fail s))))))
+
+(define ==-check
+  (lambda (v w)
+    (lambdag@ (s)
+      (cond
+        ((unify-check v w s) => succeed)
+        (else (fail s))))))
+
+(define-syntax all
+  (syntax-rules ()
+    ((_) succeed)
+    ((_ g) (lambdag@ (s) (g s)))
+    ((_ g^ g ...) (lambdag@ (s) (bind (g^ s) (all g ...))))))
+
+(define-syntax conde
+  (syntax-rules (else)
+    ((_) fail)
+    ((_ (else g0 g ...)) (all g0 g ...))
+    ((_ (g0 g ...) c ...)
+     (anye (all g0 g ...) (conde c ...)))))
+
+(define succeed (lambdag@ (s) (unit s)))
+
+(define fail (lambdag@ (s) (mzero)))
 
 (define bind
   (lambda (a-inf g)
     (case-inf a-inf
-              (() mzero)
-              ((f) (inc (bind (f) g)))
-              ((a) (g a))
-              ((a f) (mplus (g a) (inc (bind (f) g)))))))
-
-(define-syntax conde
-  (syntax-rules ()
-    ((_ (g0 g ...) (g1 g^ ...) ...)
-      (lambdag@ (a)
-        (inc
-          (mplus*
-            (bind* (g0 a) g ...)
-            (bind* (g1 a) g^ ...) ...))))))
-
-(define-syntax mplus*
-  (syntax-rules ()
-    ((_ e) e)
-    ((_ e0 e ...) (mplus e0
-                          (inc (mplus* e ...))))))
+      (mzero) 
+      ((a) (g a))
+      ((a f) (mplus (g a)
+               (lambdaf@ () (bind (f) g)))))))
 
 (define mplus
   (lambda (a-inf f)
     (case-inf a-inf
-              (() (f))
-              ((f^) (inc (mplus (f) f^)))
-              ((a) (choice a f))
-              ((a f^) (choice a (inc (mplus (f) f^)))))))
+      (f) 
+      ((a) (choice a f))
+      ((a f0) (choice a 
+                (lambdaf@ () (mplus (f0) f)))))))
+
+(define-syntax anye
+  (syntax-rules ()
+    ((_ g1 g2) 
+     (lambdag@ (s)
+       (mplus (g1 s) 
+         (lambdaf@ () (g2 s)))))))
+
+(define-syntax alli
+  (syntax-rules ()
+    ((_) succeed)
+    ((_ g) (lambdag@ (s) (g s)))
+    ((_ g^ g ...) 
+     (lambdag@ (s) 
+       (bindi (g^ s) (alli g ...))))))
+
+(define-syntax condi
+  (syntax-rules (else)
+    ((_) fail)
+    ((_ (else g0 g ...)) (all g0 g ...))
+    ((_ (g0 g ...) c ...)
+     (anyi (all g0 g ...) (condi c ...)))))
+
+(define-syntax anyi
+  (syntax-rules ()
+    ((_ g1 g2) 
+     (lambdag@ (s) 
+       (mplusi (g1 s) 
+         (lambdaf@ () (g2 s)))))))
+
+(define bindi
+  (lambda (a-inf g)
+    (case-inf a-inf
+      (mzero)
+      ((a) (g a))
+      ((a f) (mplusi (g a) 
+               (lambdaf@ () (bindi (f) g)))))))
+
+(define mplusi
+  (lambda (a-inf f)
+    (case-inf a-inf
+      (f) 
+      ((a) (choice a f))
+      ((a f0) (choice a 
+                (lambdaf@ () (mplusi (f) f0)))))))
 
 (define-syntax conda
-  (syntax-rules ()
-    ((_ (g0 g ...) (g1 g^ ...) ...)
-      (lambdag@ (a)
-        (inc
-        (ifa ((g0 a) g ...)
-              ((g1 a) g^ ...) ...))))))
+  (syntax-rules (else)
+    ((_) fail)
+    ((_ (else g0 g ...)) (all g0 g ...))
+    ((_ (g0 g ...) c ...)
+     (ifa g0 (all g ...) (conda c ...)))))
+
+(define-syntax condu
+  (syntax-rules (else)
+    ((_) fail)
+    ((_ (else g0 g ...)) (all g0 g ...))
+    ((_ (g0 g ...) c ...)
+     (ifu g0 (all g ...) (condu c ...)))))
 
 (define-syntax ifa
   (syntax-rules ()
-    ((_) mzero)
-    ((_ (e g ...) b ...)
-      (let loop ((a-inf e))
-        (case-inf a-inf
-                  (() (ifa b ...))
-                  ((f) (inc (loop (f))))
-                  ((a) (bind* a-inf g ...))
-                  ((a f) (bind* a-inf g ...)))))))
-
-(define-syntax condu
-  (syntax-rules ()
-    ((_ (g0 g ...) (g1 g^ ...) ...)
-      (lambdag@ (a)
-        (inc
-          (ifu ((g0 a) g ...)
-               ((g1 a) g^ ...) ...))))))
+    ((_ g0 g1 g2)
+     (lambdag@ (s)
+       (let ((s-inf (g0 s)) (g^ g1))
+         (case-inf s-inf
+           (g2 s)
+           ((s) (g^ s))
+           ((s f) (bind s-inf g^))))))))
 
 (define-syntax ifu
   (syntax-rules ()
-    ((_) mzero)
-    ((_ (e g ...) b ...)
-      (let loop ((a-inf e))
-        (case-inf a-inf
-                  (() (ifu b ...))
-                  ((f) (inc (loop (f))))
-                  ((a) (bind* a-inf g ...))
-                  ((a f) (bind* a g ...)))))))
-
-(define-syntax project
-  (syntax-rules ()
-    ((_ (x ...) g g* ...)
-      (lambdag@ (s)
-        (let ((x (walk* x s)) ...)
-          ((exist () g g* ...) s))))))
-
-(define succeed (== #f #f))
-
-(define fail (== #f #t))
-
-(define onceo
-  (lambda (g)
-    (condu
-      (g succeed)
-      (succeed fail)))) ;;<< why does the 'else' fail in ikarus?
-
-(define unify-sv
-  (lambda (v^ w^ s)
-    (let ([v (walk v^ s)]
-          [w (walk w^ s)])
-      (cond
-        [(eq? v w) s]
-        [(var? v) (ext-s v w s)]
-        [(var? w) (ext-s w v s)]
-        [(and (pair? v) (pair? w))
-          (let ((s (unify-sv (car v) (car w) s)))
-            (and s (unify-sv (cdr v) (cdr w) s)))]
-        [(equal? v w) s]
-        [else #f]))))
-
-(define unify-mv
-  (lambda (v w s)
-    (let*-values ([(v s^) (walk v s)]
-                  [(w s) (walk w s^)])
-      (cond
-        ((eq? v w) s)
-        ((var? v) (ext-s v w s))
-        ((var? w) (ext-s w v s))
-        ((and (pair? v) (pair? w))
-          (let ((s (unify-mv (car v) (car w) s)))
-            (and s (unify-mv (cdr v) (cdr w) s))))
-        ((equal? v w) s)
-        (else #f)))))
-
-(define unify-safe
-  (lambda (v w s)
-    (let ([v (safe-walk v s)]
-          [w (safe-walk w s)])
-      (cond
-        [(eq? v w) s]
-        [(var? v) (ext-s v w s)]
-        [(var? w) (ext-s w v s)]
-        [(and (pair? v) (pair? w))
-          (let ((s (unify-safe (car v) (car w) s)))
-            (and s (unify-safe (cdr v) (cdr w) s)))]
-        [(equal? v w) s]
-        [else #f]))))
-
-;;-------------------------------------------------------------------
-;; choose versions of various functions/macros
-
-(define empty-s k:empty)
-
-(define ext-s k:update)
-
-(define size-s k:size)
-
-(define safe-walk walk)
-
-(define-syntax unify-check
-  (syntax-rules ()
-    [(_ u v s) (unify-check-sv u v s)]))
-
-(define-syntax unify
-  (syntax-rules ()
-    [(_ v w s) (unify-sv v w s)]))
+    ((_ g0 g1 g2)
+     (lambdag@ (s)
+       (let ((s-inf (g0 s)) (g^ g1))
+         (case-inf s-inf
+           (g2 s)
+           ((s) (g^ s))
+           ((s f) (g^ s))))))))
