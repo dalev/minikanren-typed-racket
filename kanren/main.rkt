@@ -82,16 +82,30 @@
           (walk* a s))]
       [else v])))
 
-(define (reify-s v s)
-    (let ([v (walk v s)])
-      (cond
-        [(var? v) (ext-s v (reify-name (size-s s)) s)]
-        [(pair? v) (reify-s (cdr v) (reify-s (car v) s))]
-        [(vector? v)
-         (for/fold ([s s]) ([x (in-vector v)])
-           (reify-s x s))]
-        [else s])))
+(define reify-name
+  (lambda (n)
+    (string->symbol
+      (string-append "_" "." (number->string n)))))
 
+(define (reify v s)
+  (define table (make-hasheq))
+  (define count -1)
+  (let loop ([v v])
+    (let ([v (safe-walk v s)])
+      (cond
+        [(var? v)
+         (cond [(hash-ref table v #f) => (λ (x) x)]
+               [else
+                 (set! count (+ 1 count))
+                 (define name (reify-name count))
+                 (hash-set! table v name)
+                 name])]
+        [(pair? v) (cons (loop (car v)) (loop (cdr v)))]
+        [(vector? v)
+         (for/vector #:length (vector-length v)
+                     ([x (in-vector v)])
+                     (loop x))]
+        [else v]))))
 
 (define-syntax project
   (syntax-rules ()
@@ -122,7 +136,7 @@
     [(_ n (x) g0 g ...)
      #'(take n
              (λ ()
-               ((exist (x) g0 g ... (λ (a) (list (reify^ x a))))
+               ((exist (x) g0 g ... (λ (a) (list (reify x a))))
                 empty-s)))]))
 
 (define-syntax run*
@@ -149,18 +163,6 @@
   (cond
     [(occurs-check x v s) #f]
     [else (ext-s x v s)]))
-
-(define reify-name
-  (lambda (n)
-    (string->symbol
-      (string-append "_" "." (number->string n)))))
-
-(define reify
-  (lambda (v)
-    (walk* v (reify-s v empty-s))))
-
-(define (reify^ v s)
-  (walk* v (reify-s v s)))
 
 (define-syntax case-inf
   (syntax-rules ()
