@@ -1,6 +1,7 @@
 ; binary random access list based on skew numbers
 #lang racket/base
-(require racket/fixnum)
+(require racket/fixnum
+         racket/match)
 (provide
   k:size k:lookup k:update k:get-value k:empty
   k:new-var
@@ -43,13 +44,15 @@
 
 (define shift (lambda (n) (fxrshift n 1)))
 
-;; CR dalev: horrifying code
 (define (bind v ls)
-  (cond
-    [(and (pair? ls) (pair? (cdr ls)) (fx= (caar ls) (caadr ls)))
-     (cons `(,(fx+ 1 (fx+ (caar ls) (caadr ls)))
-              . ,(node v (cdar ls) (cdadr ls))) (cddr ls))]
-    [else (cons `(1 . ,v) ls)]))
+  (match ls
+    [(cons (cons x y) (cons (cons a b) c))
+     (if (fx= x a)
+       (cons (cons (fx+ 1 (fx+ x a))
+                   (node v y b))
+             c)
+       (cons (cons 1 v) ls))]
+    [_ (cons (cons 1 v) ls)]))
 
 (define (lookup-tree w i t)
   (cond
