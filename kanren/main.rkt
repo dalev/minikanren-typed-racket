@@ -1,6 +1,8 @@
 #lang racket/base
 (require
   "skew-bral.rkt"
+  racket/function
+  racket/set
   (for-syntax racket/base
               syntax/parse))
 (provide
@@ -23,49 +25,112 @@
   (syntax-rules ()
     ((_ () e) (lambda () e))))
 
-(define-syntax rhs
-  (syntax-rules ()
-    [(rhs p) (cdr p)]))
-
-(define-syntax lhs
-  (syntax-rules ()
-    [(lhs p) (car p)]))
-
 (define (both is? a b) (and (is? a) (is? b)))
+
+(require unstable/sequence)
+(define (in-compound-struct s)
+  (define-values (stype _) (struct-info s))
+  (define-values (name init-field-cnt auto-field-cnt accessor-proc mutator-proc immutable-k-list super-type skipped?) (struct-type-info stype))
+  (define total-field-cnt (+ init-field-cnt)
+    #;(compound-struct-type-field-cnt stype))
+  (sequence-lift (curry accessor-proc s) (in-range total-field-cnt)))
+
+(define (compound-struct-map f s)
+  (define-values (stype _) (struct-info s))
+  (define make (struct-type-make-constructor stype))
+  (apply make 
+         (for/list ([e (in-compound-struct s)])
+           (f e))))
+
+(define (compound-struct-ormap f s)
+  (for/or ([e (in-compound-struct s)])
+    (f e)))
+
+(define (compound-struct-andmap f s)
+  (for/and ([e (in-compound-struct s)])
+    (f e)))
+
+(define (compound-struct-same? x y)
+  (define-values (xtype _) (struct-info x))
+  ((struct-type-make-predicate xtype) y))  
+
+(define (compound-struct-cmp x y =)
+  (and (compound-struct-same? x y)
+       (for/and ([ex (in-compound-struct x)]
+                 [ey (in-compound-struct y)])
+         (= ex ey))))
+
+(define (atomic-struct? v) (not (compound-struct? v)))
+
+(define (compound-struct? v)
+  (let-values ([(stype skipped?) (struct-info v)])
+    (and stype (not skipped?))))
+
+(define-syntax-rule (or* x f ...) (or (f x) ...))
+
+(define (atom? x)
+  (or* x 
+       string? bytes? set?
+       regexp? pregexp? byte-regexp? byte-pregexp?
+       number?
+       boolean? char? symbol?
+       keyword? null? procedure? void? 
+       atomic-struct?))
+
+(define (compound? x)
+  (or* x pair? vector? mpair? box? hash? compound-struct?))
 
 (define (unify #:occurs-check? [occurs-check? #f] v^ w^ s)
   (define extend (if occurs-check? ext-s-check ext-s))
   (let loop ([v^ v^]
              [w^ w^]
              [s s])
-    (define v (walk v^ s))
-    (define w (walk w^ s))
-    (cond
-      [(eq? v w) s]
-      [(var? v) (extend v w s)]
-      [(var? w) (extend w v s)]
-      [(both pair? v w)
-       (let ((s (loop (car v) (car w) s)))
-         (and s (loop (cdr v) (cdr w) s)))]
-      [(and (both vector? v w)
-            (= (vector-length v) (vector-length w)))
-       (for/fold ([s s]) ([a (in-vector v)]
-                          [b (in-vector w)])
-         (and s (loop a b s)))]
-      [(equal? v w) s]
-      [else #f])))
+    (and s
+         (let ()
+           (define v (walk v^ s))
+           (define w (walk w^ s))
+           (cond
+             [(eq? v w) s]
+             [(var? v) (extend v w s)]
+             [(var? w) (extend w v s)]
+             [(both pair? v w)
+              (let ([s (loop (car v) (car w) s)])
+                (loop (cdr v) (cdr w) s))]
+             [(and (both vector? v w)
+                   (= (vector-length v) (vector-length w)))
+              (for/fold ([s s]) ([a (in-vector v)]
+                                 [b (in-vector w)])
+                (loop a b s))]
+             [(and (both compound-struct? v w)
+                   (compound-struct-same? v w))
+              (for/fold ([s s]) ([a (in-compound-struct v)]
+                                 [b (in-compound-struct w)])
+                (loop a b s))]
+             [(both mpair? v w)
+              (let ([s (loop (mcar v) (mcar w) s)])
+                (loop (mcdr v) (mcdr w) s))]
+             [(both box? v w)
+              (loop (unbox v) (unbox w) s)]
+             [(equal? v w) s]
+             [else #f])))))
 
 (define (occurs-check x v s)
   (let ([v (safe-walk v s)])
     (cond
       [(var? v) (eq? v x)]
       [(pair? v)
-       (or
-         (occurs-check x (car v) s)
-         (occurs-check x (cdr v) s))]
+       (or (occurs-check x (car v) s)
+           (occurs-check x (cdr v) s))]
       [(vector? v)
        (for/or ([a (in-vector v)])
          (occurs-check x a s))]
+      [(compound-struct? v)
+       (for/or ([a (in-compound-struct v)])
+         (occurs-check x a s))]
+      [(mpair? v)
+       (or (occurs-check x (mcar v) s)
+           (occurs-check x (mcdr v) s))]
+      [(box? v) (occurs-check x (unbox v) s)]
       [else #f])))
 
 (define (walk* w s)
@@ -80,6 +145,12 @@
        (for/vector #:length (vector-length v)
                    ([a (in-vector v)])
           (walk* a s))]
+      [(compound-struct? v)
+       (compound-struct-map (λ (a) (walk* a s)) v)]
+      [(box? v) (box (walk* (unbox v) s))]
+      [(mpair? v)
+       (mcons (walk* (mcar v) s)
+              (walk* (mcdr v) s))]
       [else v])))
 
 (define reify-name
@@ -105,6 +176,10 @@
          (for/vector #:length (vector-length v)
                      ([x (in-vector v)])
                      (loop x))]
+        [(compound-struct? v)
+         (compound-struct-map loop v)]
+        [(box? v) (box (loop (unbox v)))]
+        [(mpair? v) (mcons (loop (mcar v)) (loop (mcdr v)))]
         [else v]))))
 
 (define-syntax project

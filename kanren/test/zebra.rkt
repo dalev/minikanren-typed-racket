@@ -2,9 +2,7 @@
 (require "../main.rkt")
 (provide zebrao test-zebra)
 
-(define nullo
-  (lambda (x)
-    (== '() x)))
+(define (nullo x) (== '() x))
 
 (define membo
   (lambda (elt ls)
