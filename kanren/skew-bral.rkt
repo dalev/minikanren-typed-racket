@@ -10,28 +10,33 @@
 
 (struct node (val even odd))
 (struct var (name idx))
+(struct subst (size bral))
 
 ; -- public 
 
-(define k:empty '(0))
+(define k:empty (subst 0 '()))
 
-(define k:size car)
+(define k:size subst-size)
 
-(define (k:new-var name ls)
-  (let ([x (var name (car ls))])
-    (values x (k:associate x ls))))
+(define (k:new-var name sub)
+  (let ([x (var name (subst-size sub))])
+    (values x (k:associate x sub))))
 
-(define (k:associate v ls)
-  (cons (fx+ 1 (car ls)) (bind v (cdr ls))))
+(define (k:associate v sub)
+  (match sub
+    [(subst size bral)
+     (subst (fx+ 1 size) (bind v bral))]))
 
-(define (from-tail i ls)
-  (fx- (fx- (car ls) 1) i))
+(define (from-tail i sub-size)
+  (fx- (fx- sub-size 1) i))
 
-(define (k:lookup v ls)
-  (lookup (from-tail (var-idx v) ls) (cdr ls)))
+(define (k:lookup v sub)
+  (lookup (from-tail (var-idx v) (subst-size sub)) (subst-bral sub)))
 
-(define (k:update a-var v ls)
-  (cons (car ls) (update (from-tail (var-idx a-var) ls) v (cdr ls))))
+(define (k:update a-var v sub)
+  (match sub
+    [(subst size bral)
+     (subst size (update (from-tail (var-idx a-var) size) v bral))]))
 
 (define (k:get-value v)
   (cond
