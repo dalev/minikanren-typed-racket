@@ -5,9 +5,9 @@
 
 (define (%car p a) (exist (d) (== (cons a d) p)))
 (define (%cdr p d) (exist (a) (== (cons a d) p)))
-(define (%cons a d p) (== (cons a d) p))
+(define (%cons p a d) (== (cons a d) p))
 (define (%null x) (== '() x))
-(define (%pair p) (exist (a d) (%cons a d p)))
+(define (%pair p) (exist (a d) (%cons p a d)))
 
 (define (%list l)
   (conde
@@ -32,8 +32,8 @@
     [(%null l) (%null out)]
     [(%car l x) (%cdr l out)]
     [else (exist (a d res)
-            (%cons a d l)
-            (%cons a res out)
+            (%cons l a d)
+            (%cons out a res)
             (%rember x d res))]))
 
 (define (%append l s out)
@@ -41,7 +41,7 @@
     [(%null l) (== s out)]
     [else 
       (exist (a d res)
-        (%cons a d l)
-        (%cons a res out)
+        (%cons l a d)
+        (%cons out a res)
         (%append d s res))]))
 

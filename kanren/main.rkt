@@ -6,8 +6,10 @@
   (for-syntax racket/base
               syntax/parse))
 (provide
-  == ==-check conde condi conda condu
+  == ==-check 
+  conde condi conda condu
   all alli
+  anye anyi
   fail succeed
   exist run run*
   project
