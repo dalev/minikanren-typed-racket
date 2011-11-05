@@ -3,6 +3,7 @@
   "skew-bral.rkt"
   racket/function
   racket/set
+  racket/generator
   (for-syntax racket/base
               syntax/parse))
 (provide
@@ -11,7 +12,7 @@
   all alli
   anye anyi
   fail succeed
-  exist run run*
+  exist run run* in-solutions
   project
   )
 
@@ -43,14 +44,6 @@
   (apply make 
          (for/list ([e (in-compound-struct s)])
            (f e))))
-
-(define (compound-struct-ormap f s)
-  (for/or ([e (in-compound-struct s)])
-    (f e)))
-
-(define (compound-struct-andmap f s)
-  (for/and ([e (in-compound-struct s)])
-    (f e)))
 
 (define (compound-struct-same? x y)
   (define-values (xtype _) (struct-info x))
@@ -203,10 +196,22 @@
     '()
     (case-inf (f)
               '()
-              [(a) a]
+              [(a) (list a)]
               [(a f)
-               (cons (car a)
+               (cons a
                      (take (and n (- n 1)) f))])))
+
+(define-syntax (in-solutions stx)
+  (syntax-parse stx
+    [(_ (x) g0 g ...)
+     #'(in-generator
+         (let loop ([s (λ () 
+                         ((exist (x) g0 g ... (λ (a) (reify x a)))
+                          empty-s))])
+           (case-inf (s)
+              '()
+              [(a) (yield a)]
+              [(a f) (begin (yield a) (loop f))])))]))
 
 (define-syntax (run stx)
   (syntax-parse stx
