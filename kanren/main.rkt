@@ -177,19 +177,25 @@
         [(mpair? v) (mcons (loop (mcar v)) (loop (mcdr v)))]
         [else v]))))
 
-(define-syntax project
-  (syntax-rules ()
-    [(_ (x ...) g ...)
-     (lambdag@ (s)
-               (let ([x (walk* x s)] ...)
-                 ((all g ...) s)))]))
+(define-syntax (project stx)
+  (syntax-parse stx
+    [(_ (x:id ...) goal:expr ...+)
+     #:fail-when (check-duplicate-identifier
+                   (syntax->list #'(x ...)))
+                   "duplicate variable name"
+     #'(lambdag@ (s)
+                 (let ([x (walk* x s)] ...)
+                   ((all goal ...) s)))]))
 
 (define-syntax (exist stx)
   (syntax-parse stx
-    [(_ (x ...) g0 g ...)
+    [(_ (x:id ...) goal:expr ...+)
+     #:fail-when (check-duplicate-identifier
+                   (syntax->list #'(x ...)))
+                   "duplicate variable name"
       #'(λ (s)
           (let*-values ([(x s) (k:new-var 'x s)] ...)
-            ((all g0 g ...) s)))]))
+            ((all goal ...) s)))]))
 
 (define (take n f)
   (if (and n (zero? n))
@@ -203,10 +209,10 @@
 
 (define-syntax (in-solutions stx)
   (syntax-parse stx
-    [(_ (x) g0 g ...)
+    [(_ (x:id) goal ...+)
      #'(in-generator
          (let loop ([s (λ () 
-                         ((exist (x) g0 g ... (λ (a) (reify x a)))
+                         ((exist (x) goal ... (λ (a) (reify x a)))
                           empty-s))])
            (case-inf (s)
               '()
@@ -215,15 +221,16 @@
 
 (define-syntax (run stx)
   (syntax-parse stx
-    [(_ n (x) g0 g ...)
+    [(_ n (x:id) goal:expr ...+)
      #'(take n
              (λ ()
-               ((exist (x) g0 g ... (λ (a) (list (reify x a))))
+               ((exist (x) goal ... (λ (a) (list (reify x a))))
                 empty-s)))]))
 
-(define-syntax run*
-  (syntax-rules ()
-    [(_ (x) g ...) (run #f (x) g ...)]))
+(define-syntax (run* stx)
+  (syntax-parse stx
+    [(_ (x:id) g:expr ...+) 
+     #'(run #f (x) g ...)]))
 
 ;; walk based on skew binary random access lists
 (define (walk v s)
@@ -273,104 +280,98 @@
   (syntax-rules ()
     ((_ a f) (cons a f))))
 
-(define == 
-  (lambda (v w)
-    (lambdag@ (s)
-      (cond
-        ((unify #:occurs-check? #f v w s) => succeed)
-        (else (fail s))))))
+(define (== v w)
+  (λ (s)
+    (cond
+      [(unify #:occurs-check? #f v w s) => succeed]
+      [else (fail s)])))
 
-(define ==-check
-  (lambda (v w)
-    (lambdag@ (s)
-      (cond
-        ((unify #:occurs-check? #t v w s) => succeed)
-        (else (fail s))))))
+(define (==-check v w)
+  (λ (s)
+    (cond
+      [(unify #:occurs-check? #t v w s) => succeed]
+      [else (fail s)])))
 
-(define-syntax all
-  (syntax-rules ()
-    ((_) succeed)
-    ((_ g) (lambdag@ (s) (g s)))
-    ((_ g^ g ...) (lambdag@ (s) (bind (g^ s) (all g ...))))))
+(define-syntax (all stx)
+  (syntax-parse stx
+    [(_) #'succeed]
+    [(_ g) #'g]
+    [(_ g^ g ...) #'(lambdag@ (s) (bind (g^ s) (all g ...)))]))
 
 (define-syntax conde
   (syntax-rules (else)
-    ((_) fail)
-    ((_ (else g0 g ...)) (all g0 g ...))
-    ((_ (g0 g ...) c ...)
-     (anye (all g0 g ...) (conde c ...)))))
+    [(_) fail]
+    [(_ (else g0 g ...)) (all g0 g ...)]
+    [(_ (g0 g ...) c ...)
+     (anye (all g0 g ...) (conde c ...))]))
 
-(define succeed (lambdag@ (s) (unit s)))
+(define (succeed s) (unit s))
 
-(define fail (lambdag@ (s) (mzero)))
+(define (fail _s) (mzero))
 
-(define bind
-  (lambda (a-inf g)
-    (case-inf a-inf
-      (mzero) 
-      ((a) (g a))
-      ((a f) (mplus (g a)
-               (lambdaf@ () (bind (f) g)))))))
+(define (bind a-inf g)
+  (case-inf a-inf
+    (mzero) 
+    ((a) (g a))
+    ((a f) (mplus (g a)
+              (lambdaf@ () (bind (f) g))))))
 
-(define mplus
-  (lambda (a-inf f)
-    (case-inf a-inf
-      (f) 
-      ((a) (choice a f))
-      ((a f0) (choice a 
-                (lambdaf@ () (mplus (f0) f)))))))
+(define (mplus a-inf f)
+  (case-inf a-inf
+    (f) 
+    ((a) (choice a f))
+    ((a f0) (choice a 
+              (lambdaf@ () (mplus (f0) f))))))
 
-(define-syntax anye
-  (syntax-rules ()
-    ((_ g1 g2) 
-     (lambdag@ (s)
-       (mplus (g1 s) 
-         (lambdaf@ () (g2 s)))))))
+(define-syntax (anye stx)
+  (syntax-parse stx
+    [(_ g1 g2) 
+     #'(lambdag@ (s)
+         (mplus (g1 s) 
+           (lambdaf@ () (g2 s))))]))
 
-(define-syntax alli
-  (syntax-rules ()
-    ((_) succeed)
-    ((_ g) (lambdag@ (s) (g s)))
-    ((_ g^ g ...) 
-     (lambdag@ (s) 
-       (bindi (g^ s) (alli g ...))))))
+(define-syntax (alli stx)
+  (syntax-parse stx
+    [(_) #'succeed]
+    [(_ g) #'g]
+    [(_ g^ g ...) 
+     #'(lambdag@ (s) 
+         (bindi (g^ s) (alli g ...)))]))
 
 (define-syntax condi
   (syntax-rules (else)
-    ((_) fail)
-    ((_ (else g0 g ...)) (all g0 g ...))
-    ((_ (g0 g ...) c ...)
-     (anyi (all g0 g ...) (condi c ...)))))
+    [(_) fail]
+    [(_ (else g0 g ...)) (all g0 g ...)]
+    [(_ (g0 g ...) c ...)
+     (anyi (all g0 g ...) (condi c ...))]))
 
-(define-syntax anyi
-  (syntax-rules ()
-    ((_ g1 g2) 
-     (lambdag@ (s) 
-       (mplusi (g1 s) 
-         (lambdaf@ () (g2 s)))))))
+(define-syntax (anyi stx)
+  (syntax-parse stx
+    [(_ g1 g2) 
+     #'(lambdag@ (s) 
+         (mplusi (g1 s) 
+                 (lambdaf@ () (g2 s))))]))
 
-(define bindi
-  (lambda (a-inf g)
-    (case-inf a-inf
-      (mzero)
-      ((a) (g a))
-      ((a f) (mplusi (g a) 
-               (lambdaf@ () (bindi (f) g)))))))
+(define (bindi a-inf g)
+  (case-inf a-inf
+    (mzero)
+    ((a) (g a))
+    ((a f) (mplusi (g a) 
+              (lambdaf@ () (bindi (f) g))))))
 
-(define mplusi
-  (lambda (a-inf f)
-    (case-inf a-inf
-      (f) 
-      ((a) (choice a f))
-      ((a f0) (choice a 
-                (lambdaf@ () (mplusi (f) f0)))))))
+(define (mplusi a-inf f)
+  (case-inf a-inf
+    (f) 
+    ((a) (choice a f))
+    ((a f0) (choice a 
+                    (lambdaf@ () (mplusi (f) f0))))))
 
 (define-syntax conda
   (syntax-rules (else)
-    ((_) fail)
-    ((_ (else g0 g ...)) (all g0 g ...))
-    ((_ (g0 g ...) c ...)
-     (ifa g0 (all g ...) (conda c ...)))))
+    [(_) fail]
+    [(_ (else g0 g ...)) (all g0 g ...)]
+    [(_ (g0 g ...) c ...)
+     (ifa g0 (all g ...) (conda c ...))]))
 
 (define-syntax condu
   (syntax-rules (else)
