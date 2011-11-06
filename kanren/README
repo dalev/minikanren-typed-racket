@@ -1,0 +1,12 @@
+The code in this directory is a port of Kiselyov et al's Kanren logic
+programming system [1].  I've also integrated the results of Bender, Kuper, et
+al [2] on efficient substition representations.
+
+I've taken the liberty of lightly editing the original code to make it fit
+better into standard Racket style.  And I also extended the unification
+procedure to handle more built-in Racket datatypes.  Some of that code (e.g.
+for unifying arbitrary structures) was lifted from Racket's racklog library.
+
+[1] http://kanren.sourceforge.net/
+[2] Efficient representations for triangular substitutions. 
+    https://www.cs.indiana.edu/~lkuper/papers/walk.pdf
