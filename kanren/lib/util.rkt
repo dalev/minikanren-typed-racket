@@ -3,17 +3,16 @@
 
 (provide (all-defined-out))
 
-(define (once g) (condu [g succeed] [else fail]))
+(define (%once g) (condu [g succeed] [else fail]))
 
-(define anyo
-  (lambda (g)
-    (conde
-      (g succeed)
-      (else (anyo g)))))
+(define (%repeat g)
+  (conde
+    [g succeed]
+    [else (repeat g)]))
 
-(define nevero (anyo fail))
+(define %never (repeat fail))
  
-(define alwayso (anyo succeed))
+(define %always (repeat succeed))
 
 ;;;  'trace-vars' can be used to print the values of selected variables
 ;;;  in the substitution.
