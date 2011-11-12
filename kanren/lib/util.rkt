@@ -3,6 +3,8 @@
 
 (provide (all-defined-out))
 
+(define (once g) (condu [g succeed] [else fail]))
+
 (define anyo
   (lambda (g)
     (conde
