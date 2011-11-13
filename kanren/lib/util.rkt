@@ -8,11 +8,11 @@
 (define (%repeat g)
   (conde
     [g succeed]
-    [else (repeat g)]))
+    [else (%repeat g)]))
 
-(define %never (repeat fail))
+(define %never (%repeat fail))
  
-(define %always (repeat succeed))
+(define %always (%repeat succeed))
 
 ;;;  'trace-vars' can be used to print the values of selected variables
 ;;;  in the substitution.
