@@ -13,7 +13,10 @@
         [else 'greater]))
 
 (define empty (set:create number:compare))
+(check-true (set:empty? empty))
+
 (define 1-to-6 (set:of-list '(1 2 3 4 5 6) #:compare number:compare))
+(check-false (set:empty? 1-to-6))
 
 (check-= (set:size empty) 0 0)
 (check-= (set:size 1-to-6) 6 0)
