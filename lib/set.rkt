@@ -10,7 +10,7 @@
 (define-struct set (elts compare))
 
 (provide/contract [create (comparator/c . -> . set?)])
-(define (create compare) (make-set tree.leaf compare))
+(define (create compare) (make-set tree.empty compare))
 
 (provide/contract [add (set? any/c . -> . set?)])
 (define (add set e)
@@ -44,7 +44,7 @@
 (provide/contract [of-list ((listof any/c) #:compare comparator/c . -> . set?)])
 (define (of-list elts #:compare compare)
   (make-set 
-    (for/fold ([tree tree.leaf]) ([e (in-list elts)])
+    (for/fold ([tree tree.empty]) ([e (in-list elts)])
       (tree.add tree e compare))
     compare))
 

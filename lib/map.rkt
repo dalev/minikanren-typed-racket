@@ -14,7 +14,7 @@
 (define-struct map (tree compare-pair-by-key))
 
 (define (create compare-key) 
-  (make-map tree:leaf (lambda (p q) (compare-key (car p) (car q)))))
+  (make-map tree:empty (lambda (p q) (compare-key (car p) (car q)))))
 
 (define (add m #:key key #:data data)
   (match m
@@ -32,7 +32,7 @@
 (define (of-alist alist #:compare compare-key)
   (define (compare p q) (compare-key (car p) (car q)))
   (make-map
-    (for/fold ([tree tree:leaf]) ([e (in-list alist)])
+    (for/fold ([tree tree:empty]) ([e (in-list alist)])
       (tree:add tree e compare))
     compare))
 
