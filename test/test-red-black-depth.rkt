@@ -7,11 +7,12 @@
         [(< a b) 'less]
         [else 'greater]))
 
-(define *size* 50000)
+(define *size* 5000)
 
 (define log2-*size* (/ (log *size*) (log 2)))
 
 (let* ([tree (for/fold ([tree tree:empty]) ([e (in-range 0 *size*)]) 
+               (check-true (tree:invariant? tree))
                (tree:add tree e number:compare))]
        [depth (tree:depth tree)])
   (check-true (>= depth log2-*size*))
