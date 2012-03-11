@@ -33,15 +33,11 @@
        (and (invariant? left) (invariant? right)))]
     [_ #t]))
 
-;; (create-node _ _ _ _) <> empty
-(define (create-node color left item right)
+;; (black-node _ _ _) <> empty
+(define (black-node left item right)
   (if (and (empty? left) (empty? right))
-    (case color
-      [(red) (r-leaf item)]
-      [(black) (b-leaf item)])
-    (case color
-      [(red) (r-branch left item right)]
-      [(black) (b-branch left item right)])))
+    (b-leaf item)
+    (b-branch left item right)))
 
 (define (color branch)
   (match branch
@@ -49,26 +45,28 @@
     [(or (b-leaf _) (b-branch _ _ _)) 'black]))
 
 (define (balance color left item right)
-  (match (vector color left item right)
-    [(or (vector 'black (r-branch (r-branch a x b) y c) z d)
-         (vector 'black (r-branch a x (r-branch b y c)) z d)
-         (vector 'black a x (r-branch (r-branch b y c) z d))
-         (vector 'black a x (r-branch b y (r-branch c z d))))
-     (r-branch (create-node 'black a x b) y (create-node 'black c z d))]
-    [(vector 'black (r-branch (r-leaf x) y c) z d)
-     (r-branch (b-leaf x) y (create-node 'black c z d))]
-    [(vector 'black (r-branch a x (r-leaf y)) z d)
-     (r-branch (create-node 'black a x empty) y (create-node 'black empty z d))]
-    [(vector 'black a x (r-branch (r-leaf y) z d))
-     ;; b = c = empty
-     (r-branch (create-node 'black a x empty) y (create-node 'black empty z d))]
-    [(vector 'black a x (r-branch b y (r-leaf z)))
-     ;; c = d = empty
-     (r-branch (create-node 'black a x b) y (b-leaf z))]
-    [_
-      (case color
-        [(red)   (r-branch left item right)]
-        [(black) (b-branch left item right)])]))
+  (when (and (empty? left) (empty? right))
+    (error 'balance "At least one of left or right must be nonempty"))
+  (case color
+    [(black)
+     (match (vector left item right)
+       [(or (vector (r-branch (r-branch a x b) y c) z d)
+            (vector (r-branch a x (r-branch b y c)) z d)
+            (vector a x (r-branch (r-branch b y c) z d))
+            (vector a x (r-branch b y (r-branch c z d))))
+        (r-branch (black-node a x b) y (black-node c z d))]
+       [(vector (r-branch (r-leaf x) y c) z d)
+        ;; a = b = empty
+        (r-branch (b-leaf x) y (black-node c z d))]
+       [(or (vector (r-branch a x (r-leaf y)) z d)
+            (vector a x (r-branch (r-leaf y) z d)))
+        ;; b = c = empty
+        (r-branch (black-node a x empty) y (black-node empty z d))]
+       [(vector a x (r-branch b y (r-leaf z)))
+        ;; c = d = empty
+        (r-branch (black-node a x b) y (b-leaf z))]
+       [_ (b-branch left item right)])]
+    [(red) (r-branch left item right)]))
 
 (define (darken-root t)
   (match t
@@ -88,8 +86,8 @@
       [(or (r-leaf item*)
            (b-leaf item*))
        (case (compare item item*)
-         [(less)    (balance (color t) (insert-item empty) item* empty)]
-         [(greater) (balance (color t) empty item* (insert-item empty))]
+         [(less)    (balance (color t) (r-leaf item) item* empty)]
+         [(greater) (balance (color t) empty item* (r-leaf item))]
          [(equal) t])]
                              
       [_ (r-leaf item)]))
