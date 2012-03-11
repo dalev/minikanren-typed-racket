@@ -5,6 +5,7 @@
 
 (provide
   empty
+  empty?
   add
   mem
   find
