@@ -1,5 +1,6 @@
 #lang racket/base
 (require racket/match
+         (for-syntax racket/base)
          racket/contract)
 
 (provide
@@ -19,17 +20,35 @@
     (struct empty ())
     (values (empty) empty?)))
 
+;; We encode the color in the structure types to save a word per node.
+;; We also represent leaf nodes explicitly rather than as 
+;;   (branch empty item empty) 
+;; to save two words on each node at the fringe of the tree.
 (struct r-leaf (item))
 (struct b-leaf (item))
 
 (struct r-branch (left item right))
 (struct b-branch (left item right))
 
+;; Most tree procedures other than add & balance don't care about the node
+;; color, and so we extend the pattern language to capture this common case.
+(define-match-expander any-branch
+  (λ (stx)
+    (syntax-case stx ()
+      [(_ left item right) #'(or (r-branch left item right)
+                                 (b-branch left item right))])))
+
+(define-match-expander any-leaf
+  (λ (stx)
+    (syntax-case stx ()
+      [(_ item) #'(or (b-leaf item) (r-leaf item))])))
+
+;; Immediate subtrees of each branch shouldn't both be empty
 (define (invariant? t)
   (match t
-    [(or (r-branch left _ right) (b-branch left _ right))
+    [(any-branch left _ right)
      (if (and (empty? left) (empty? right))
-       #f ;; we should have built a leaf node
+       #f
        (and (invariant? left) (invariant? right)))]
     [_ #t]))
 
@@ -77,14 +96,12 @@
 (define (add t item compare)
   (define (insert-item t)
     (match t
-      [(or (r-branch left item* right)
-           (b-branch left item* right))
+      [(any-branch left item* right)
        (case (compare item item*)
          [(less)    (balance (color t) (insert-item left) item* right)]
          [(greater) (balance (color t) left item* (insert-item right))]
          [(equal) t])]
-      [(or (r-leaf item*)
-           (b-leaf item*))
+      [(any-leaf item*)
        (case (compare item item*)
          [(less)    (balance (color t) (r-leaf item) item* empty)]
          [(greater) (balance (color t) empty item* (r-leaf item))]
@@ -95,12 +112,12 @@
 
 (define (find t e compare)
   (match t
-    [(or (r-branch left item right) (b-branch left item right))
+    [(any-branch left item right)
      (case (compare e item)
        ((less) (find left e compare))
        ((equal) (vector item))
        ((greater) (find right e compare)))]
-    [(or (r-leaf item) (b-leaf item))
+    [(any-leaf item)
      (if (eq? (compare e item) 'equal)
        (vector item)
        #f)]
@@ -110,30 +127,29 @@
 
 (define (iter t f)
   (match t
-    [(or (r-branch left item right) (b-branch left item right))
+    [(any-branch left item right)
      (f item)
      (iter left f)
      (iter right f)]
-    [(or (r-leaf item) (b-leaf item)) (f item)]
+    [(any-leaf item) (f item)]
     [_ (void)]))
 
 (define (size t)
   (match t
-    [(or (r-branch left _ right) (b-branch left _ right))
+    [(any-branch left _ right)
      (+ 1 (size left) (size right))]
-    [(or (b-leaf _) (r-leaf _)) 1]
+    [(any-leaf _) 1]
     [_ 0]))
 
 (define (to-list t)
   (match t
-    [(or (r-branch left item right) (b-branch left item right))
+    [(any-branch left item right)
      (append (to-list left) (cons item (to-list right)))]
-    [(or (r-leaf item) (b-leaf item)) (list item)]
+    [(any-leaf item) (list item)]
     [_ '()]))
 
 (define (depth t)
   (match t
-    [(or (r-branch left _ right) (b-branch left _ right))
-     (add1 (max (depth left) (depth right)))]
-    [(or (r-leaf _) (b-leaf _)) 1]
+    [(any-branch left _ right) (add1 (max (depth left) (depth right)))]
+    [(any-leaf _) 1]
     [_ 0]))
