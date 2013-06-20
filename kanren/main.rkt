@@ -12,7 +12,7 @@
   all alli
   anye anyi
   fail succeed
-  exist run run* in-solutions
+  fresh run run* in-solutions
   project
   )
 
@@ -187,7 +187,7 @@
                  (let ([x (walk* x s)] ...)
                    ((all goal ...) s)))]))
 
-(define-syntax (exist stx)
+(define-syntax (fresh stx)
   (syntax-parse stx
     [(_ (x:id ...) goal:expr ...+)
      #:fail-when (check-duplicate-identifier

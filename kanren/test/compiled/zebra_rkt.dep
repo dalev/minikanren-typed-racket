@@ -1,0 +1,1 @@
+("5.3.4" ("5bf9a352ef4ff0136e93efd08bd01afd98064e2f" . "557d8052fbd27199cdc143a780fa605cb05e0d09") (collects #"racket" #"base.rkt") #"/Users/dalev/hacking/core/kanren/test/../main.rkt" (collects #"syntax" #"parse" #"private" #"runtime-report.rkt") (collects #"racket" #"base" #"lang" #"reader.rkt"))

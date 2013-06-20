@@ -7,7 +7,7 @@
 
 (U.check-equal?
   (run* (p) 
-    (exist (x y)
+    (fresh (x y)
       (== p (my-pair x y))
       (== (fish 'red 10) (fish x y))))
-  (list (my-pair 'red 10)))
+  (list (list (my-pair 'red 10))))

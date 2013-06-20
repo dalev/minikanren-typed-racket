@@ -28,7 +28,7 @@
          (unit s))))))
 
 ;;; (run* (q)
-;;;   (exist (r)
+;;;   (fresh (r)
 ;;;     (== 3 q)
 ;;;     (trace-vars "What it is!" q r)))
 ;;;

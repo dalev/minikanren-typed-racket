@@ -58,12 +58,12 @@
 
 (define caro
   (lambda (p a)
-    (exist (d)
+    (fresh (d)
       (== (cons a d) p))))
 
 (define cdro
   (lambda (p d)
-    (exist (a)
+    (fresh (a)
       (== (cons a d) p))))
 
 (define conso
@@ -76,7 +76,7 @@
 
 (define pairo
   (lambda (p)
-    (exist (a d)
+    (fresh (a d)
       (conso a d p))))
 
 (define new-list?
@@ -91,7 +91,7 @@
 ;(conde
 ;((nullo l) succeed)
 ;((pairo l)
-;(exist (d)
+;(fresh (d)
 ;(cdro l d)
 ;(listo d)))
 ;(else fail))))
@@ -102,7 +102,7 @@
 ;(conde
 ;((nullo l) succeed)
 ;((pairo l)
-;(exist (d)
+;(fresh (d)
 ;(cdro l d)
 ;(listo d)))
 ;(succeed fail))))
@@ -112,7 +112,7 @@
     (condi
       ((nullo l) succeed)
       ((pairo l)
-       (exist (d)
+       (fresh (d)
          (cdro l d)
          (listo d))))))
 
@@ -126,7 +126,7 @@
 
 (define twinso
   (lambda (s)
-    (exist (x y)
+    (fresh (x y)
       (conso x y s)
       (conso x '() y))))
 
@@ -141,7 +141,7 @@
   (lambda (l s out)
     (conde
       ((nullo l) (== s out))
-      ((exist (a d res)
+      ((fresh (a d res)
          (conso a d l)
          (conso a res out)
          (appendo d s res))))))
@@ -180,13 +180,13 @@
 
 (define half-addero
   (lambda (x y r c)
-    (exist ()
+    (fresh ()
       (bit-xoro x y r)
       (bit-ando x y c))))
 
 (define full-addero1
   (lambda (b x y r c)
-    (exist (w xy wz)
+    (fresh (w xy wz)
       (half-addero x y w xy)
       (half-addero w b r wz)
       (bit-xoro xy wz c))))
@@ -216,12 +216,12 @@
 
 (define poso
   (lambda (n)
-    (exist (a d)
+    (fresh (a d)
       (== `(,a . ,d) n))))
 
 (define >1o
   (lambda (n)
-    (exist (a ad dd)
+    (fresh (a ad dd)
       (== `(,a ,ad . ,dd) n))))
 
 (define addero
@@ -235,7 +235,7 @@
       ((== 1 d) (== '() n) (poso m)
                 (addero 0 '(1) m r))
       ((== '(1) n) (== '(1) m)
-                   (exist (a c)
+                   (fresh (a c)
                      (== `(,a ,c) r)
                      (full-addero d 1 1 a c)))
       ((== '(1) n) (gen-addero d n m r))
@@ -245,7 +245,7 @@
 
 (define gen-addero
   (lambda (d n m r)
-    (exist (a b c e x y z)
+    (fresh (a b c e x y z)
       (== `(,a . ,x) n)
       (== `(,b . ,y) m) (poso y)
       (== `(,c . ,z) r) (poso z)
@@ -268,16 +268,16 @@
       ((poso n) (== '() m) (== '() p))  
       ((== '(1) n) (poso m) (== m p))   
       ((>1o n) (== '(1) m) (== n p))
-      ((exist (x z)
+      ((fresh (x z)
          (== `(0 . ,x) n) (poso x)
          (== `(0 . ,z) p) (poso z)
          (>1o m)
          (*o x m z)))
-      ((exist (x y)
+      ((fresh (x y)
          (== `(1 . ,x) n) (poso x)
          (== `(0 . ,y) m) (poso y)
          (*o m n p)))
-      ((exist (x y)
+      ((fresh (x y)
          (== `(1 . ,x) n) (poso x)      
          (== `(1 . ,y) m) (poso y)
          (odd-*o-nobound x n m p))))))
@@ -288,29 +288,29 @@
       ((poso n) (== '() m) (== '() p))  
       ((== '(1) n) (poso m) (== m p))   
       ((>1o n) (== '(1) m) (== n p))
-      ((exist (x z)
+      ((fresh (x z)
          (== `(0 . ,x) n) (poso x)
          (== `(0 . ,z) p) (poso z)
          (>1o m)
          (*o x m z)))
-      ((exist (x y)
+      ((fresh (x y)
          (== `(1 . ,x) n) (poso x)
          (== `(0 . ,y) m) (poso y)
          (*o m n p)))
-      ((exist (x y)
+      ((fresh (x y)
          (== `(1 . ,x) n) (poso x)      
          (== `(1 . ,y) m) (poso y)
          (odd-*o x n m p))))))
 
 (define odd-*o-nobound
   (lambda (x n m p)
-    (exist (q)
+    (fresh (q)
       (bound-*o-succ q p n m)
       (*o x m q)
       (pluso `(0 . ,q) m p))))
 (define odd-*o
   (lambda (x n m p)
-    (exist (q)
+    (fresh (q)
       (bound-*o q p n m)
       (*o x m q)
       (pluso `(0 . ,q) m p))))
@@ -322,7 +322,7 @@
   (lambda (q p n m)
     (conde
       ((nullo q) (pairo p))
-      ((exist (x y z)
+      ((fresh (x y z)
          (cdro q x)
          (cdro p y)
          (conde
@@ -335,7 +335,7 @@
 ;(lambda (q p n m)
 ;(conde
 ;((nullo q) (pairo p))
-;((exist (x y z)
+;((fresh (x y z)
 ;(cdro q x)
 ;(cdro p y)
 ;(conde
@@ -350,7 +350,7 @@
     (conde
       ((== '() n) (== '() m))
       ((== '(1) n) (== '(1) m))
-      ((exist (a x b y)
+      ((fresh (a x b y)
          (== `(,a . ,x) n) (poso x)
          (== `(,b . ,y) m) (poso y)
          (=lo x y))))))
@@ -360,7 +360,7 @@
     (conde
       ((== '() n) (poso m))
       ((== '(1) n) (>1o m))
-      ((exist (a x b y)
+      ((fresh (a x b y)
          (== `(,a . ,x) n) (poso x)
          (== `(,b . ,y) m) (poso y)
          (<lo x y))))))
@@ -378,7 +378,7 @@
     (conde
       ((<lo n m))
       ((=lo n m)
-       (exist (x)
+       (fresh (x)
          (poso x)
          (pluso n x m))))))
 
@@ -398,7 +398,7 @@
       ((<lo m n)                        
        (<o r m)                        
        (poso q)                 
-       (exist (nh nl qh ql qlm qlmr rr rh)
+       (fresh (nh nl qh ql qlm qlmr rr rh)
          (splito n r nl nh)
          (splito q r ql qh)
          (conde
@@ -417,27 +417,27 @@
   (lambda (n r l h)
     (conde
       ((== '() n) (== '() h) (== '() l))
-      ((exist (b n^)
+      ((fresh (b n^)
          (== `(0 ,b . ,n^) n)
          (== '() r)
          (== `(,b . ,n^) h)
          (== '() l)))
-      ((exist (n^)
+      ((fresh (n^)
          (==  `(1 . ,n^) n)
          (== '() r)
          (== n^ h)
          (== '(1) l)))
-      ((exist (b n^ a r^)
+      ((fresh (b n^ a r^)
          (== `(0 ,b . ,n^) n)
          (== `(,a . ,r^) r)
          (== '() l)
          (splito `(,b . ,n^) r^ '() h)))
-      ((exist (n^ a r^)
+      ((fresh (n^ a r^)
          (== `(1 . ,n^) n)
          (== `(,a . ,r^) r)
          (== '(1) l)
          (splito n^ r^ '() h)))
-      ((exist (b n^ a r^ l^)
+      ((fresh (b n^ a r^ l^)
          (== `(,b . ,n^) n)
          (== `(,a . ,r^) r)
          (== `(,b . ,l^) l)
@@ -453,22 +453,22 @@
       ((== '(1) b) (poso q) (pluso r '(1) n))
       ((== '() b) (poso q) (== r n))
       ((== '(0 1) b)
-       (exist (a ad dd)
+       (fresh (a ad dd)
          (poso dd)
          (== `(,a ,ad . ,dd) n)
          (exp2 n '() q)
-         (exist (s)
+         (fresh (s)
            (splito n dd r s))))
-      ((exist (a ad add ddd)
+      ((fresh (a ad add ddd)
          (conde
            ((== '(1 1) b))
            ((== `(,a ,ad ,add . ,ddd) b))))
        (<lo b n)
-       (exist (bw1 bw nw nw1 ql1 ql s)
+       (fresh (bw1 bw nw nw1 ql1 ql s)
          (exp2 b '() bw1)
          (pluso bw1 '(1) bw)
          (<lo q n)
-         (exist (q1 bwq1)
+         (fresh (q1 bwq1)
            (pluso q '(1) q1)
            (*o bw q1 bwq1)
            (<o nw1 bwq1))
@@ -477,13 +477,13 @@
          (/o nw bw ql1 s)
          (pluso ql '(1) ql1)
          (<=lo ql q)
-         (exist (bql qh s qdh qd)
+         (fresh (bql qh s qdh qd)
            (repeated-mul b ql bql)
            (/o nw bw1 qh s)
            (pluso ql qdh qh)
            (pluso ql qd q)
            (<=o qd qdh)
-           (exist (bqd bq1 bq)
+           (fresh (bqd bq1 bq)
              (repeated-mul b qd bqd)
              (*o bql bqd bq)
              (*o b bq bq1)
@@ -495,15 +495,15 @@
     (conde
       ((== '(1) n) (== '() q))
       ((>1o n) (== '(1) q)
-               (exist (s)
+               (fresh (s)
                  (splito n b s '(1))))
-      ((exist (q1 b2)
+      ((fresh (q1 b2)
          (== `(0 . ,q1) q)
          (poso q1)
          (<lo b n)
          (appendo b `(1 . ,b) b2)
          (exp2 n b2 q1)))
-      ((exist (q1 nh b2 s)
+      ((fresh (q1 nh b2 s)
          (== `(1 . ,q1) q)
          (poso q1)
          (poso nh)
@@ -517,7 +517,7 @@
       ((poso n) (== '() q) (== '(1) nq))
       ((== '(1) q) (== n nq))
       ((>1o q)
-       (exist (q1 nq1)
+       (fresh (q1 nq1)
          (pluso q1 '(1) q)
          (repeated-mul n q1 nq1)
          (*o nq1 n nq))))))
@@ -545,7 +545,7 @@
   (lambda (n x)
     (conde
       ((== n x) succeed)
-      ((exist (m)
+      ((fresh (m)
          (minuso n '(1) m)
          (bumpo m x))))))
 
@@ -553,7 +553,7 @@
 (define gen&testo
   (lambda (op i j k)
     (onceo
-      (exist (x y z)
+      (fresh (x y z)
         (op x y z)
         (== i x)
         (== j y)
@@ -562,7 +562,7 @@
 
 (define enumerateo
   (lambda (op r n)
-    (exist (i j k)
+    (fresh (i j k)
       (bumpo n i)
       (bumpo n j)
       (op i j k)
@@ -572,7 +572,7 @@
 (define run-logo
   (lambda (n)
     (run n (s)
-      (exist (b q r)
+      (fresh (b q r)
         (logo '(0 0 1 0 0 0 1) b q r)
         (>1o q)
         (== `(,b ,q ,r) s)))))
@@ -647,21 +647,21 @@
 
 (test-check "testc11.tex-11" 
             (run* (q)
-              (exist (x)
+              (fresh (x)
                 (== #t x)
                 (== #t q)))
 
             (list #t))
 
 (run* (q)
-  (exist (x)
+  (fresh (x)
     (== #t x)
     (== #t q)))
 
 
 (test-check "testc11.tex-12" 
             (run* (q)
-              (exist (x)
+              (fresh (x)
                 (== x #t)
                 (== #t q)))
 
@@ -669,7 +669,7 @@
 
 (test-check "testc11.tex-13" 
             (run* (q)
-              (exist (x)
+              (fresh (x)
                 (== x #t)
                 (== q #t)))
 
@@ -684,39 +684,39 @@
 (test-check "testc11.tex-15"   
             (run* (x)
               (let ((x #f))
-                (exist (x)
+                (fresh (x)
                   (== #t x))))
 
             `(_.0))
 
 (test-check "testc11.tex-16" 
             (run* (r)
-              (exist (x y)
+              (fresh (x y)
                 (== (cons x (cons y '())) r)))
 
             (list `(_.0 _.1)))
 
 (test-check "testc11.tex-17" 
             (run* (s)
-              (exist (t u)
+              (fresh (t u)
                 (== (cons t (cons u '())) s)))
 
             (list `(_.0 _.1)))
 
 (test-check "testc11.tex-18" 
             (run* (r)
-              (exist (x)
+              (fresh (x)
                 (let ((y x))
-                  (exist (x)
+                  (fresh (x)
                     (== (cons y (cons x (cons y '()))) r)))))
 
             (list `(_.0 _.1 _.0)))
 
 (test-check "testc11.tex-19" 
             (run* (r)
-              (exist (x)
+              (fresh (x)
                 (let ((y x))
-                  (exist (x)
+                  (fresh (x)
                     (== (cons x (cons y (cons x '()))) r)))))
 
             (list `(_.0 _.1 _.0)))
@@ -744,14 +744,14 @@
 
 (test-check "testc11.tex-23" 
             (run* (r)
-              (exist (x)
+              (fresh (x)
                 (== x r)))
 
             (list `_.0))
 
 (test-check "testc11.tex-24" 
             (run* (q)
-              (exist (x)
+              (fresh (x)
                 (== #t x)
                 (== x q)))
 
@@ -759,21 +759,21 @@
 
 (test-check "testc11.tex-25" 
             (run* (q)
-              (exist (x)
+              (fresh (x)
                 (== x q)
                 (== #t x)))
 
             (list #t))
 
 (run* (q)
-  (exist (x)
+  (fresh (x)
     (== #t x)
     (== x q)))
 
 
 (test-check "testc11.tex-26" 
             (run* (q)
-              (exist (x)
+              (fresh (x)
                 (== (eq? x q) q)))
 
 
@@ -783,7 +783,7 @@
 (test-check "testc11.tex-27" 
             (run* (q)
               (let ((x q))
-                (exist (q)
+                (fresh (q)
                   (== (eq? x q) x))))
 
             (list #f))
@@ -887,7 +887,7 @@
 
 (test-check "testc11.tex-34" 
             (run* (r)
-              (exist (x y)
+              (fresh (x y)
                 (== 'split x)
                 (== 'pea y)
                 (== (cons x (cons y '())) r)))
@@ -896,7 +896,7 @@
 
 (test-check "testc11.tex-35" 
             (run* (r)
-              (exist (x y)
+              (fresh (x y)
                 (conde
                   ((== 'split x) (== 'pea y))
                   ((== 'navy x) (== 'bean y)))
@@ -906,7 +906,7 @@
 
 (test-check "testc11.tex-36" 
             (run* (r)
-              (exist (x y)
+              (fresh (x y)
                 (conde
                   ((== 'split x) (== 'pea y))
                   ((== 'navy x) (== 'bean y)))
@@ -929,7 +929,7 @@
 
   (test-check "testc11.tex-38"   
               (run* (r)
-                (exist (x y)
+                (fresh (x y)
                   (condi
                     ((teacupo x) (== #t y) succeed)
                     ((== #f x) (== #t y)))
@@ -939,10 +939,10 @@
 
   (test-check "testc11.tex-39"   
               (run* (r)                                                                      
-                (exist (x y z)                                                              
+                (fresh (x y z)                                                              
                   (conde                                                                    
-                                                                                  ((== y x) (exist (x) (== z x)))                                         
-                                                                                  ((exist (x) (== y x)) (== z x)))                                        
+                                                                                  ((== y x) (fresh (x) (== z x)))                                         
+                                                                                  ((fresh (x) (== y x)) (== z x)))                                        
                   (== (cons y (cons z '())) r)))
 
               `((_.0 _.1) (_.0 _.1)))
@@ -950,10 +950,10 @@
 (test-check
  "testc11.tex-40"
  (run* (r)
-  (exist (x y z)
+  (fresh (x y z)
     (conde 
-      [(== y x) (exist (x) (== z x))] 
-      [(exist (x) (== y x)) (== z x)])
+      [(== y x) (fresh (x) (== z x))] 
+      [(fresh (x) (== y x)) (== z x)])
     (== #f x)
     (== (cons y (cons z '())) r)))
  `((#f _.0) (_.0 #f)))
@@ -970,7 +970,7 @@
 (test-check "testc11.tex-42" 
             (run* (q)
               (let ((a (== #t q))
-                    (b (exist (x)
+                    (b (fresh (x)
                          (== x q)
                          (== #f x)))
                     (c (conde
@@ -989,14 +989,14 @@
 
 (test-check "testc12.tex-2" 
             (run* (r)
-              (exist (y x)
+              (fresh (y x)
                 (== `(,x ,y) r)))
 
             (list `(_.0 _.1)))
 
 (test-check "testc12.tex-3" 
             (run* (r)
-              (exist (v w)
+              (fresh (v w)
                 (== (let ((x v) (y w)) `(,x ,y)) r)))
 
             `((_.0 _.1)))
@@ -1045,7 +1045,7 @@
 
 (test-check "testc12.tex-10" 
             (run* (r)
-              (exist (x y)
+              (fresh (x y)
                 (caro `(,r ,y) x)
                 (== 'pear x)))
 
@@ -1061,7 +1061,7 @@
 
 (test-check "testc12.tex-12" 
             (run* (r)
-              (exist (x y)
+              (fresh (x y)
                 (caro `(grape raisin pear) x)
                 (caro `((a) (b) (c)) y)
                 (== (cons x y) r)))
@@ -1081,7 +1081,7 @@
 
 (test-check "testc12.tex-15" 
             (run* (r)
-              (exist (v)
+              (fresh (v)
                 (cdro `(a c o r n) v)
                 (caro v r)))
 
@@ -1097,7 +1097,7 @@
 
 (test-check "testc12.tex-17" 
             (run* (r)
-              (exist (x y)
+              (fresh (x y)
                 (cdro `(grape raisin pear) x)
                 (caro `((a) (b) (c)) y)
                 (== (cons x y) r)))
@@ -1137,7 +1137,7 @@
 
 (test-check "testc12.tex-22" 
             (run* (l)
-              (exist (x) 
+              (fresh (x) 
                 (cdro l '(c o r n))
                 (caro l x)
                 (== 'a x)))
@@ -1162,7 +1162,7 @@
 
 (test-check "testc12.tex-26" 
             (run* (r)
-              (exist (x y z)
+              (fresh (x y z)
                 (== `(e a d ,x) r)
                 (conso y `(a ,z c) r)))
 
@@ -1182,7 +1182,7 @@
 
   (test-check "testc12.tex-29" 
               (run* (l)
-                (exist (x)
+                (fresh (x)
                   (== `(d a ,x c) l)
                   (conso x `(a ,x c) l)))
 
@@ -1190,7 +1190,7 @@
 
   (test-check "testc12.tex-30" 
               (run* (l)
-                (exist (x)
+                (fresh (x)
                   (conso x `(a ,x c) l)
                   (== `(d a ,x c) l)))
 
@@ -1199,7 +1199,7 @@
 
 (test-check "testc12.tex-31" 
             (run* (l)
-              (exist (d x y w s)
+              (fresh (d x y w s)
                 (conso w '(a n s) s)
                 (cdro l s)
                 (caro l x)
@@ -1300,7 +1300,7 @@
 
 (test-check "testc12.tex-46"   
             (run* (r) 
-              (exist (x y)
+              (fresh (x y)
                 (== (cons x (cons y 'salad)) r)))
 
             (list `(_.0 _.1 . salad)))
@@ -1395,10 +1395,10 @@
            (lambda (l)
              (conde
                [(nullo l) succeed]
-               [(exist (a) 
+               [(fresh (a) 
                   (caro l a)
                   (listo a))
-                (exist (d)
+                (fresh (d)
                   (cdro l d)
                   (lolo d))]))])
 
@@ -1409,7 +1409,7 @@
 
   (test-check "testc14.tex-10" 
               (run* (q)
-                (exist (x y) 
+                (fresh (x y) 
                   (lolo `((a b) (,x c) (d ,y)))
                   (== #t q)))
 
@@ -1417,7 +1417,7 @@
 
   (test-check "testc14.tex-11" 
               (run1 (q)
-                    (exist (x)
+                    (fresh (x)
                       (lolo `((a b) . ,x))
                       (== #t q)))
 
@@ -1457,10 +1457,10 @@
            (lambda (l)
              (conde
                ((nullo l) succeed)
-               ((exist (a)
+               ((fresh (a)
                   (caro l a)
                   (twinso a))
-                (exist (d)
+                (fresh (d)
                   (cdro l d)
                   (loto d)))))])
 
@@ -1485,7 +1485,7 @@
 
   (test-check "testc14.tex-18" 
               (run5 (r)
-                    (exist (w x y z)
+                    (fresh (w x y z)
                       (loto `((g g) (e ,w) (,x ,y) . ,z))
                       (== `(,w (,x ,y) ,z) r)))
 
@@ -1499,7 +1499,7 @@
 
   (test-check "testc14.tex-19" 
               (run3 (out)
-                    (exist (w x y z)
+                    (fresh (w x y z)
                       (== `((g g) (e ,w) (,x ,y) . ,z) out)
                       (loto out)))
 
@@ -1513,17 +1513,17 @@
            (lambda (predo l)
              (conde
                ((nullo l) succeed)
-               ((exist (a)
+               ((fresh (a)
                   (caro l a)
                   (predo a))
-                (exist (d)
+                (fresh (d)
                   (cdro l d)
                   (listofo predo d)))))])
 
 
   (test-check "testc14.tex-20" 
               (run3 (out)
-                    (exist (w x y z)
+                    (fresh (w x y z)
                       (== `((g g) (e ,w) (,x ,y) . ,z) out)
                       (listofo twinso out)))
 
@@ -1555,12 +1555,12 @@
            (lambda (x l)
              (conde
                ((nullo l) fail)
-               ((exist (a)
+               ((fresh (a)
                   (caro l a)
                   (== a x))
                 succeed)
                (succeed
-                 (exist (d)
+                 (fresh (d)
                    (cdro l d)
                    (membero x d)))))])
 
@@ -1622,7 +1622,7 @@
 
   (test-check "testc14.tex-31"   
               (run* (r)
-                (exist (x y)
+                (fresh (x y)
                   (membero 'e `(pasta ,x fagioli ,y))
                   (== `(,x ,y) r)))
 
@@ -1659,7 +1659,7 @@
            (lambda (x l)
              (conde
                ((caro l x) (cdro l '()))
-               ((exist (d)
+               ((fresh (d)
                   (cdro l d)
                   (pmembero x d)))))])
 
@@ -1690,7 +1690,7 @@
                 (conde
                   ((cdro l '()))
                   (succeed)))
-               ((exist (d)
+               ((fresh (d)
                   (cdro l d)
                   (pmembero x d)))))])
 
@@ -1708,9 +1708,9 @@
                ((caro l x)
                 (conde
                   ((cdro l '()))
-                  ((exist (a d)
+                  ((fresh (a d)
                      (cdro l `(,a . ,d))))))
-               ((exist (d)
+               ((fresh (d)
                   (cdro l d)
                   (pmembero x d)))))])
 
@@ -1787,12 +1787,12 @@
 ;(lambda (x l out)
 ;(conde
 ;((nullo l) fail)
-;((exist (a)
+;((fresh (a)
 ;(caro l a)
 ;(== a x))
 ;(== l out))
 ;(succeed
-;(exist (d)
+;(fresh (d)
 ;(cdro l d)
 ;(memo x d out))))))
 
@@ -1800,11 +1800,11 @@
 ;(-efine memo
 ;(lambda (x l out)
 ;(conde
-;((exist (a)
+;((fresh (a)
 ;(caro l a)
 ;(== a x))
 ;(== l out))
-;((exist (d)
+;((fresh (d)
 ;(cdro l d)
 ;(memo x d out))))))
 
@@ -1813,7 +1813,7 @@
            (lambda (x l out)
              (conde
                ((caro l x) (== l out))
-               ((exist (d)
+               ((fresh (d)
                   (cdro l d)
                   (memo x d out)))))])
 
@@ -1826,7 +1826,7 @@
 
   (test-check "testc15.tex-8"   
               (run1 (out) 
-                    (exist (x)
+                    (fresh (x)
                       (memo 'tofu `(a b ,x d tofu e) out)))
 
               `((tofu d tofu e)))
@@ -1867,14 +1867,14 @@
 
   (test-check "testc15.tex-14"   
               (run* (out) 
-                (exist (x) 
+                (fresh (x) 
                   (memo 'tofu `(a b ,x d tofu e) out)))
 
               `((tofu d tofu e) (tofu e)))
 
   (test-check "testc15.tex-15" 
               (run12 (z)
-                     (exist (u)
+                     (fresh (u)
                        (memo 'tofu `(a b tofu d tofu e . ,z) u)))
 
 
@@ -1911,15 +1911,15 @@
 ;(lambda (x l out)
 ;(conde
 ;((nullo l) (== '() out))
-;((exist (a)
+;((fresh (a)
 ;(caro l a)
 ;(== a x))
 ;(cdro l out))
-;((exist (res)
-;(exist (d)
+;((fresh (res)
+;(fresh (d)
 ;(cdro l d)
 ;(rembero x d res))
-;(exist (a)
+;(fresh (a)
 ;(caro l a)
 ;(conso a res out)))))))
 
@@ -1929,25 +1929,25 @@
 ;(conde
 ;((nullo l) (== '() out))
 ;((caro l x) (cdro l out))
-;((exist (res)
-;(exist (d)
+;((fresh (res)
+;(fresh (d)
 ;(cdro l d)
 ;(rembero x d res))
-;(exist (a)
+;(fresh (a)
 ;(caro l a)
 ;(conso a res out))))))])
 
 
-;(exist (res)
-;(exist (d)
+;(fresh (res)
+;(fresh (d)
 ;(cdro l d)
 ;(rembero x d res))
-;(exist (a)
+;(fresh (a)
 ;(caro l a)
 ;(conso a res out)))
 
 
-;(exist (a d res)
+;(fresh (a d res)
 ;(cdro l d)
 ;(rembero x d res)
 ;(caro l a)
@@ -1962,7 +1962,7 @@
                (
 
 
-                (exist (a d res)
+                (fresh (a d res)
                   (conso a d l)
                   (rembero x d res)
                   (conso a res out))
@@ -1973,14 +1973,14 @@
 
   (test-check "testc15.tex-17" 
               (run1 (out)
-                    (exist (y)
+                    (fresh (y)
                       (rembero 'peas `(a b ,y d peas e) out)))
 
               `((a b d peas e)))
 
   (test-check "testc15.tex-18" 
               (run* (out)
-                (exist (y z)
+                (fresh (y z)
                   (rembero y `(a b ,y d ,z e) out)))
 
 
@@ -1995,7 +1995,7 @@
 
   (test-check "testc15.tex-19" 
               (run* (r) 
-                (exist (y z) 
+                (fresh (y z) 
                   (rembero y `(,y d ,z e) `(,y d e))
                   (== `(,y ,z) r)))
 
@@ -2008,7 +2008,7 @@
 
   (test-check "testc15.tex-20" 
               (run13 (w)
-                     (exist (y z out)
+                     (fresh (y z out)
                        (rembero y `(a b ,y d ,z . ,w) out)))
 
 
@@ -2076,7 +2076,7 @@
            (lambda (l s out)
              (conde
                ((nullo l) (== s out))
-               ((exist (a d res)
+               ((fresh (a d res)
                   (caro l a)
                   (cdro l d)   
                   (appendo d s res)
@@ -2094,7 +2094,7 @@
 
   (test-check "testc16.tex-6" 
               (run* (x)
-                (exist (y)
+                (fresh (y)
                   (appendo
                     `(cake with ice ,y)
                     '(tastes yummy)
@@ -2104,7 +2104,7 @@
 
   (test-check "testc16.tex-7" 
               (run* (x)
-                (exist (y)
+                (fresh (y)
                   (appendo
                     '(cake with ice cream)
                     y
@@ -2114,14 +2114,14 @@
 
   (test-check "testc16.tex-8" 
               (run1 (x)
-                    (exist (y)
+                    (fresh (y)
                       (appendo `(cake with ice . ,y) '(d t) x)))
 
               (list `(cake with ice d t)))
 
   (test-check "testc16.tex-9" 
               (run1 (y)
-                    (exist (x)
+                    (fresh (x)
                       (appendo `(cake with ice . ,y) '(d t) x)))
 
 
@@ -2132,7 +2132,7 @@
            (lambda (l s out)
              (conde
                ((nullo l) (== s out))
-               ((exist (a d res)
+               ((fresh (a d res)
                   (conso a d l)
                   (appendo d s res)
                   (conso a res out)))))])
@@ -2140,7 +2140,7 @@
 
   (test-check "testc16.tex-10" 
               (run5 (x)
-                    (exist (y)
+                    (fresh (y)
                       (appendo `(cake with ice . ,y) '(d t) x)))
 
 
@@ -2153,7 +2153,7 @@
 
   (test-check "testc16.tex-11" 
               (run5 (y)
-                    (exist (x)
+                    (fresh (x)
                       (appendo `(cake with ice . ,y) '(d t) x)))
 
 
@@ -2180,7 +2180,7 @@
 
     (test-check "testc16.tex-13" 
                 (run5 (x)
-                      (exist (y)
+                      (fresh (y)
                         (appendo
                           `(cake with ice . ,y)
                           `(d t . ,y)
@@ -2196,7 +2196,7 @@
 
   (test-check "testc16.tex-14" 
               (run* (x)
-                (exist (z)
+                (fresh (z)
                   (appendo
                     `(cake with ice cream)
                     `(d t . ,z)
@@ -2208,7 +2208,7 @@
 
   (test-check "testc16.tex-15" 
               (run6 (x)
-                    (exist (y)
+                    (fresh (y)
                       (appendo x y `(cake with ice d t))))
 
 
@@ -2222,7 +2222,7 @@
 
   (test-check "testc16.tex-16" 
               (run6 (y)
-                    (exist (x)
+                    (fresh (x)
                       (appendo x y `(cake with ice d t))))
 
 
@@ -2239,7 +2239,7 @@
 
 
             (run6 (r)
-                  (exist (x y)
+                  (fresh (x y)
                     (appendo x y `(cake with ice d t))
                     (== `(,x ,y) r)))
 
@@ -2263,7 +2263,7 @@
 
   (let ([e (make-engine (lambda () 
                           (run7 (r)
-                                (exist (x y)
+                                (fresh (x y)
                                   (appendo x y `(cake with ice d t))
                                   (== `(,x ,y) r)))
                           ))])
@@ -2287,7 +2287,7 @@
         ])
   (test-check "testc16.tex-18" 
               (run7 (r)
-                    (exist (x y)
+                    (fresh (x y)
                       (appendo x y `(cake with ice d t))
                       (== `(,x ,y) r)))
 
@@ -2297,7 +2297,7 @@
 
 (test-check "testc16.tex-19" 
             (run7 (x)
-                  (exist (y z)
+                  (fresh (y z)
                     (appendo x y z)))
 
 
@@ -2312,7 +2312,7 @@
 
 (test-check "testc16.tex-20" 
             (run7 (y)
-                  (exist (x z)
+                  (fresh (x z)
                     (appendo x y z)))
 
 
@@ -2327,7 +2327,7 @@
 
 (test-check "testc16.tex-21" 
             (run7 (z)
-                  (exist (x y)
+                  (fresh (x y)
                     (appendo x y z)))
 
 
@@ -2342,7 +2342,7 @@
 
 (test-check "testc16.tex-22" 
             (run7 (r)
-                  (exist (x y z)
+                  (fresh (x y z)
                     (appendo x y z)
                     (== `(,x ,y ,z) r)))
 
@@ -2360,7 +2360,7 @@
            (lambda (l s out)
              (conde
                [(nullo l) (== s out)]
-               [(exist (a d res)
+               [(fresh (a d res)
                   (conso a d l)
                   (conso a res out)
                   (swappendo d s res))]))])
@@ -2368,7 +2368,7 @@
 
   (test-check "testc16.tex-23" 
               (run7 (r)
-                    (exist (x y z)
+                    (fresh (x y z)
                       (swappendo x y z)
                       (== `(,x ,y ,z) r)))
 
@@ -2404,7 +2404,7 @@
              (conde
                [(== x out)]
                [(pairo x)
-                (exist (a)
+                (fresh (a)
                   (caro x a)
                   (unwrapo a out))]))])
 
@@ -2494,7 +2494,7 @@
                [(nullo s) (== '() out)]
                [(conso s '() out) succeed]
                [(pairo s)
-                (exist (a d res-a res-d)
+                (fresh (a d res-a res-d)
                   (conso a d s)
                   (flatteno a res-a)
                   (flatteno d res-d)
@@ -2625,7 +2625,7 @@
 
 #;
 (letrec ([strangeo
-           (exist ()
+           (fresh ()
              strangeo)])
 
   (let ([e (make-engine (lambda ()   
@@ -2671,7 +2671,7 @@
 
   (test-check "testc17.tex-4" 
               (run5 (q)
-                    (exist (x y)
+                    (fresh (x y)
                       (strangesto x y)
                       (== `(,x ,y) q)))
 
@@ -2812,7 +2812,7 @@
 (test-check
  "testc17.tex-19"
  (run1 (q) 
-       (exist () 
+       (fresh () 
          (alli
            (conde 
              ((== #f q)) 
@@ -2825,7 +2825,7 @@
 (test-check
  "testc17.tex-20"
  (run5 (q) 
-       (exist () 
+       (fresh () 
          (alli
            (conde ((== #f q)) ((== #t q))) 
            always))
@@ -2835,7 +2835,7 @@
 
 (test-check "testc17.tex-21"   
             (run5 (q)
-                  (exist ()
+                  (fresh ()
                     (conde
                       ((== #t q))
                       ((== #f q)))
@@ -2846,7 +2846,7 @@
 
 (test-check "testc20.tex-1" 
             (run* (s)
-              (exist (x y)
+              (fresh (x y)
                 (bit-xoro x y 0)
                 (== `(,x ,y) s)))  
 
@@ -2857,7 +2857,7 @@
 
 (test-check "testc20.tex-2" 
             (run* (s)
-              (exist (x y)
+              (fresh (x y)
                 (bit-xoro x y 1)
                 (== `(,x ,y) s)))
 
@@ -2868,7 +2868,7 @@
 
 (test-check "testc20.tex-3" 
             (run* (s)
-              (exist (x y r)
+              (fresh (x y r)
                 (bit-xoro x y r)
                 (== `(,x ,y ,r) s)))
 
@@ -2881,7 +2881,7 @@
 
 (test-check "testc20.tex-4" 
             (run* (s)
-              (exist (x y)
+              (fresh (x y)
                 (bit-ando x y 1)
                 (== `(,x ,y) s)))  
 
@@ -2897,7 +2897,7 @@
 
 (test-check "testc20.tex-6" 
             (run* (s)
-              (exist (x y r c)
+              (fresh (x y r c)
                 (half-addero x y r c)
                 (== `(,x ,y ,r ,c) s)))
 
@@ -2910,7 +2910,7 @@
 
 (test-check "testc20.tex-7" 
             (run* (s)
-              (exist (r c)
+              (fresh (r c)
                 (full-addero1 0 1 1 r c)
                 (== `(,r ,c) s)))
 
@@ -2918,7 +2918,7 @@
 
 (test-check "testc20.tex-8" 
             (run* (s)
-              (exist (r c)
+              (fresh (r c)
                 (full-addero 1 1 1 r c)
                 (== `(,r ,c) s)))
 
@@ -2926,7 +2926,7 @@
 
 (test-check "testc20.tex-9" 
             (run* (s)
-              (exist (b x y r c)
+              (fresh (b x y r c)
                 (full-addero b x y r c)
                 (== `(,b ,x ,y ,r ,c) s)))
 
@@ -3084,7 +3084,7 @@
 
 (test-check "testc20.tex-24" 
             (run3 (s)
-                  (exist (x y r)
+                  (fresh (x y r)
                     (addero 0 x y r)
                     (== `(,x ,y ,r) s)))
 
@@ -3097,7 +3097,7 @@
 #;
 (test-check "testc20.tex-25" 
             (run22 (s)
-                   (exist (x y r)
+                   (fresh (x y r)
                      (addero 0 x y r)
                      (== `(,x ,y ,r) s)))
 
@@ -3136,7 +3136,7 @@
 
 (test-check "testc20.tex-27" 
             (run* (s)
-              (exist (x y)
+              (fresh (x y)
                 (addero 0 x y '(1 0 1))
                 (== `(,x ,y) s)))
 
@@ -3150,20 +3150,20 @@
             )
 
 (run* (s)
-  (exist (x y)
+  (fresh (x y)
     (addero 0 x y '(1 0 1))
     (== `(,x ,y) s)))
 
 
 (run* (s)
-  (exist (x y)
+  (fresh (x y)
     (pluso x y '(1 0 1))
     (== `(,x ,y) s)))
 
 
 (test-check "testc20.tex-28" 
             (run* (s)
-              (exist (x y)
+              (fresh (x y)
                 (pluso x y '(1 0 1))
                 (== `(,x ,y) s)))
 
@@ -3204,7 +3204,7 @@
 #;
 (test-check "testc21.tex-1" 
             (run34 (t)
-                   (exist (x y r)
+                   (fresh (x y r)
                      (*o x y r)
                      (== `(,x ,y ,r) t)))
 
@@ -3255,14 +3255,14 @@
 
 (test-check "testc21.tex-3" 
             (run1 (t)
-                  (exist (n m)
+                  (fresh (n m)
                     (*o n m '(1))
                     (== `(,n ,m) t)))
 
             (list `((1) (1))))
 (let ([e (make-engine (lambda () 
                         (run2 (t)
-                              (exist (n m)
+                              (fresh (n m)
                                 (*o-nobound n m '(1))
                                 (== `(,n ,m) t)))
                         ))])
@@ -3276,7 +3276,7 @@
 
 (test-check "testc21.tex-5" 
             (run2 (t)
-                  (exist (n m)
+                  (fresh (n m)
                     (*o n m '(1))
                     (== `(,n ,m) t)))
 
@@ -3290,7 +3290,7 @@
 
 (test-check "testc21.tex-7" 
             (run* (t)
-              (exist (w x y)
+              (fresh (w x y)
                 (=lo `(1 ,w ,x . ,y) '(0 1 1 0 1))
                 (== `(,w ,x ,y) t)))
 
@@ -3312,7 +3312,7 @@
 
 (test-check "testc21.tex-10" 
             (run5 (t)
-                  (exist (y z)
+                  (fresh (y z)
                     (=lo `(1 . ,y) `(1 . ,z))
                     (== `(,y ,z) t)))
 
@@ -3326,7 +3326,7 @@
 
 (test-check "testc21.tex-11" 
             (run5 (t)
-                  (exist (y z)
+                  (fresh (y z)
                     (=lo `(1 . ,y) `(0 . ,z))
                     (== `(,y ,z) t)))
 
@@ -3340,7 +3340,7 @@
 
 (test-check "testc21.tex-12" 
             (run5 (t)
-                  (exist (y z)
+                  (fresh (y z)
                     (=lo `(1 . ,y) `(0 1 1 0 1 . ,z))
                     (== `(,y ,z) t)))
 
@@ -3354,7 +3354,7 @@
 
 (test-check "testc21.tex-13" 
             (run8 (t)
-                  (exist (y z)
+                  (fresh (y z)
                     (<lo `(1 . ,y) `(0 1 1 0 1 . ,z))
                     (== `(,y ,z) t)))
 
@@ -3381,7 +3381,7 @@
 #;
 (test-check "testc21.tex-15" 
             (run8 (t)
-                  (exist (n m)
+                  (fresh (n m)
                     (<=lo n m)
                     (== `(,n ,m) t)))
 
@@ -3398,7 +3398,7 @@
 
 (test-check "testc21.tex-16" 
             (run1 (t)
-                  (exist (n m)
+                  (fresh (n m)
                     (<=lo n m)
                     (*o n '(0 1) m)
                     (== `(,n ,m) t)))
@@ -3408,7 +3408,7 @@
 #;
 (test-check "testc21.tex-17" 
             (run10 (t)
-                   (exist (n m)
+                   (fresh (n m)
                      (<=lo n m)
                      (*o n '(0 1) m)
                      (== `(,n ,m) t)))
@@ -3429,7 +3429,7 @@
 #;
 (test-check "testc21.tex-18" 
             (run15 (t)
-                   (exist (n m)
+                   (fresh (n m)
                      (<=lo n m)
                      (== `(,n ,m) t)))
 
@@ -3507,7 +3507,7 @@
 
 (test-check "testc21.tex-25" 
             (run6 (t)
-                  (exist (n m q r)
+                  (fresh (n m q r)
                     (/o n m q r)
                     (== `(,n ,m ,q ,r) t)))
 
@@ -3531,7 +3531,7 @@
             ((== '(1) q) (== '() r) (== n m)
                          (<o r m))      
             ((<o m n) (<o r m)
-                      (exist (mq)
+                      (fresh (mq)
                         (<=lo mq n)
                         (*o m q mq)
                         (pluso mq r n)))))])
@@ -3543,7 +3543,7 @@
 
 
             (run3 (t)
-                  (exist (y z)
+                  (fresh (y z)
                     (/o `(1 0 . ,y) '(0 1) z '())
                     (== `(,y ,z) t)))
 
@@ -3565,7 +3565,7 @@
 
 ;(time
 ;(run9 (s)
-;(exist (b q r)
+;(fresh (b q r)
 ;(logo '(0 0 1 0 0 0 1) b q r)
 ;(>1o q)
 ;(== `(,b ,q ,r) s))))
@@ -3573,7 +3573,7 @@
 #;
 (test-check "testc21.tex-27" 
             (run9 (s)
-                  (exist (b q r)
+                  (fresh (b q r)
                     (logo '(0 0 1 0 0 0 1) b q r)
                     (>1o q)
                     (== `(,b ,q ,r) s)))
@@ -3758,7 +3758,7 @@
 
 (test-check "testc22.tex-26"   
             (run1 (q) 
-                  (exist (x)
+                  (fresh (x)
                     (== `(,x) x)
                     (== #t q)))
 
@@ -3766,7 +3766,7 @@
 
 (test-check "testc22.tex-27"   
             (run1 (q)
-                  (exist (x y)
+                  (fresh (x y)
                     (== `(,x) y)
                     (== `(,y) x)
                     (== #t q)))
@@ -3780,7 +3780,7 @@
             `())
 (let ([e (make-engine (lambda () 
                         (run1 (x)
-                              (exist (y z)
+                              (fresh (y z)
                                 (== x z)
                                 (== `(a b ,z) y)
                                 (== x y)))
@@ -3793,7 +3793,7 @@
 
 (test-check "testc22.tex-30" 
             (run1 (x)
-                  (exist (y z)
+                  (fresh (y z)
                     (== x z)
                     (== `(a b ,z) y)
                     (==-check x y)))
@@ -3872,7 +3872,7 @@
 
 (test-check "testc23.tex-3" 
             (run* (q)
-              (exist (x y)
+              (fresh (x y)
                 (== 'split x)
                 (== 'pea y)
                 (conda
@@ -3884,7 +3884,7 @@
 
 (test-check "testc23.tex-4" 
             (run* (q)
-              (exist (x y)
+              (fresh (x y)
                 (== 'split x)
                 (== 'pea y)
                 (conda
@@ -4108,37 +4108,37 @@
             )
 
 #;
-(letrec ([proof-that-exist-needs-an-inc
-           (exist ()
-             proof-that-exist-needs-an-inc)])
+(letrec ([proof-that-fresh-needs-an-inc
+           (fresh ()
+             proof-that-fresh-needs-an-inc)])
 
   (test-check 'proof-that-run-needs-an-inc
               (run 1 (q)
                 (conde
-                  (proof-that-exist-needs-an-inc)
+                  (proof-that-fresh-needs-an-inc)
                   (succeed)))
               '(_.0))
 
-  (letrec ([proof-that-exist-needs-an-inc-with-conda
+  (letrec ([proof-that-fresh-needs-an-inc-with-conda
              (conda
-               (proof-that-exist-needs-an-inc))])
+               (proof-that-fresh-needs-an-inc))])
 
     (test-check 'proof-that-run-needs-an-inc-with-conde-and-conda
                 (run 1 (q)
                   (conde
-                    (proof-that-exist-needs-an-inc)
+                    (proof-that-fresh-needs-an-inc)
                     (succeed)))
                 '(_.0)))
 
-  (letrec ([proof-that-exist-needs-an-inc-with-conda
-             (exist ()
+  (letrec ([proof-that-fresh-needs-an-inc-with-conda
+             (fresh ()
                (conda
-                 (proof-that-exist-needs-an-inc succeed)))])
+                 (proof-that-fresh-needs-an-inc succeed)))])
 
     (test-check 'proof-that-run-needs-an-inc-with-conde
                 (run 1 (q)
                   (conde
-                    (proof-that-exist-needs-an-inc succeed)
+                    (proof-that-fresh-needs-an-inc succeed)
                     (succeed)))
                 '(_.0))))
 

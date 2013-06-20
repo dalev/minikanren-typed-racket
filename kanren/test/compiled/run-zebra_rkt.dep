@@ -1,0 +1,1 @@
+("5.3.4" ("79651e86796508a73d46acd1a49d852073a05b13" . "c2d5ec1e562ed53bdbe2fc71b186ea1ca558dde7") (collects #"racket" #"pretty.rkt") (collects #"racket" #"base.rkt") #"/Users/dalev/hacking/core/kanren/test/zebra.rkt" (collects #"racket" #"base" #"lang" #"reader.rkt"))

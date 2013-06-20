@@ -10,7 +10,7 @@
   (conde
     [(%pred sexp) succeed]
     [else
-      (exist (fst snd)
+      (fresh (fst snd)
         (%cons sexp fst snd)
         (anye (%anywhere fst %pred)
               (%anywhere snd %pred)))]))
@@ -19,7 +19,7 @@
   (condu
     [(%pred sexp) succeed]
     [else
-      (exist (fst snd)
+      (fresh (fst snd)
         (%cons sexp fst snd)
         (conde
           [(%anywhere/u fst %pred) succeed]
@@ -29,7 +29,7 @@
   (conda
     [(%pred sexp) succeed]
     [else
-      (exist (fst snd)
+      (fresh (fst snd)
         (%cons sexp fst snd)
         (conde
           [(%anywhere/a fst %pred) succeed]
