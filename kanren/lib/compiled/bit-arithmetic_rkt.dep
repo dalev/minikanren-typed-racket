@@ -1,1 +1,0 @@
-("5.2.1" ("04b15c62e2ee77606cd09221a819c839eee6983f" . "9dc1832753b7f57c81332a1fb6b00e624632c4f1") (collects #"racket" #"base.rkt") #"/Users/dalev/hacking/core/kanren/lib/../main.rkt" #"/Users/dalev/hacking/core/kanren/lib/list.rkt" #"/Users/dalev/hacking/core/kanren/lib/util.rkt" (collects #"racket" #"base" #"lang" #"reader.rkt"))
