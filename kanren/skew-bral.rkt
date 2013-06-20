@@ -8,13 +8,18 @@
   var?
   )
 
+(struct bral-empty ())
+(struct bral-node (weight tree rest))
+
+;; Tree branches inside the BRAL:
 (struct node (val even odd))
+
 (struct var (name idx))
 (struct subst (size bral))
 
 ; -- public 
 
-(define k:empty (subst 0 '()))
+(define k:empty (subst 0 (bral-empty)))
 
 (define k:size subst-size)
 
@@ -51,13 +56,13 @@
 
 (define (bind v ls)
   (match ls
-    [(cons (cons x y) (cons (cons a b) c))
-     (if (fx= x a)
-       (cons (cons (fx+ 1 (fx+ x a))
-                   (node v y b))
-             c)
-       (cons (cons 1 v) ls))]
-    [_ (cons (cons 1 v) ls)]))
+    [(bral-node w0 tree0 (bral-node w1 tree1 rest))
+     (if (fx= w0 w1)
+       (bral-node (fx+ 1 (fx+ w0 w1))
+                  (node v tree0 tree1)
+                  rest)
+       (bral-node 1 v ls))]
+    [_ (bral-node 1 v ls)]))
 
 (define (lookup-tree w i t)
   (cond
@@ -72,8 +77,8 @@
 
 (define (lookup i ls)
   (match ls 
-    ['() #f]
-    [(cons (cons weight tree) ls*)
+    [(bral-empty) #f]
+    [(bral-node weight tree ls*)
      (if (fx< i weight)
        (lookup-tree weight i tree)
        (lookup (fx- i weight) ls*))]))
@@ -95,8 +100,8 @@
 
 (define (update i v ls)
   (match ls
-    ['()  (error 'k:update "illegal index ~s ~s" i v)]
-    [(cons (and t (cons weight tree)) ls*)
+    [(bral-empty)  (error 'k:update "illegal index ~s ~s" i v)]
+    [(bral-node weight tree ls*)
      (if (fx< i weight)
-       (cons (cons weight (update-tree weight i v tree)) ls*)
-       (cons t (update (fx- i weight) v ls*)))]))
+       (bral-node weight (update-tree weight i v tree) ls*)
+       (bral-node weight tree (update (fx- i weight) v ls*)))]))
