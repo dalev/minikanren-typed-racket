@@ -212,7 +212,7 @@
     [(_ (x:id) goal ...+)
      #'(in-generator
          (let loop ([s (λ () 
-                         ((exist (x) goal ... (λ (a) (reify x a)))
+                         ((fresh (x) goal ... (λ (a) (reify x a)))
                           empty-s))])
            (case-inf (s)
               '()
@@ -224,7 +224,7 @@
     [(_ n (x:id) goal:expr ...+)
      #'(take n
              (λ ()
-               ((exist (x) goal ... (λ (a) (list (reify x a))))
+               ((fresh (x) goal ... (λ (a) (list (reify x a))))
                 empty-s)))]))
 
 (define-syntax (run* stx)
