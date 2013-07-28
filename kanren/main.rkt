@@ -1,6 +1,6 @@
 #lang racket/base
 (require
-  "skew-bral.rkt"
+  (prefix-in subst: "skew-bral.rkt")
   racket/function
   racket/set
   racket/generator
@@ -16,9 +16,7 @@
   project
   )
 
-(define empty-s k:empty)
-(define ext-s k:update)
-(define size-s k:size)
+(define var? subst:var?)
 
 (define-syntax lambdag@
   (syntax-rules ()
@@ -49,11 +47,11 @@
   (define-values (xtype _) (struct-info x))
   ((struct-type-make-predicate xtype) y))  
 
-(define (compound-struct-cmp x y =)
+(define (compound-struct-cmp x y field=?)
   (and (compound-struct-same? x y)
        (for/and ([ex (in-compound-struct x)]
                  [ey (in-compound-struct y)])
-         (= ex ey))))
+         (field=? ex ey))))
 
 (define (atomic-struct? v) (not (compound-struct? v)))
 
@@ -75,19 +73,19 @@
 (define (compound? x)
   (or* x pair? vector? mpair? box? hash? compound-struct?))
 
-(define (unify #:occurs-check? [occurs-check? #f] v^ w^ s)
-  (define extend (if occurs-check? ext-s-check ext-s))
+(define (unify #:occurs-check? [occurs-check? #f] s v^ w^)
+  (define extend (if occurs-check? ext-s-check subst:extend))
   (let loop ([v^ v^]
              [w^ w^]
              [s s])
     (and s
          (let ()
-           (define v (walk v^ s))
-           (define w (walk w^ s))
+           (define v (subst:walk v^ s))
+           (define w (subst:walk w^ s))
            (cond
              [(eq? v w) s]
-             [(var? v) (extend v w s)]
-             [(var? w) (extend w v s)]
+             [(var? v) (extend s v w)]
+             [(var? w) (extend s w v)]
              [(both pair? v w)
               (let ([s (loop (car v) (car w) s)])
                 (loop (cdr v) (cdr w) s))]
@@ -109,27 +107,27 @@
              [(equal? v w) s]
              [else #f])))))
 
-(define (occurs-check x v s)
-  (let ([v (safe-walk v s)])
+(define (occurs-check s x v)
+  (let ([v (subst:walk v s)])
     (cond
       [(var? v) (eq? v x)]
       [(pair? v)
-       (or (occurs-check x (car v) s)
-           (occurs-check x (cdr v) s))]
+       (or (occurs-check s x (car v))
+           (occurs-check s x (cdr v)))]
       [(vector? v)
        (for/or ([a (in-vector v)])
-         (occurs-check x a s))]
+         (occurs-check s x a))]
       [(compound-struct? v)
        (for/or ([a (in-compound-struct v)])
-         (occurs-check x a s))]
+         (occurs-check s x a))]
       [(mpair? v)
-       (or (occurs-check x (mcar v) s)
-           (occurs-check x (mcdr v) s))]
-      [(box? v) (occurs-check x (unbox v) s)]
+       (or (occurs-check s x (mcar v))
+           (occurs-check s x (mcdr v)))]
+      [(box? v) (occurs-check s x (unbox v))]
       [else #f])))
 
 (define (walk* w s)
-  (let ([v (safe-walk w s)])
+  (let ([v (subst:walk w s)])
     (cond
       [(var? v) v]
       [(pair? v)
@@ -157,7 +155,7 @@
   (define table (make-hasheq))
   (define count -1)
   (let loop ([v v])
-    (let ([v (safe-walk v s)])
+    (let ([v (subst:walk v s)])
       (cond
         [(var? v)
          (cond [(hash-ref table v #f) => (λ (x) x)]
@@ -194,7 +192,7 @@
                    (syntax->list #'(x ...)))
                    "duplicate variable name"
       #'(λ (s)
-          (let*-values ([(x s) (k:new-var 'x s)] ...)
+          (let*-values ([(x s) (subst:create-variable 'x s)] ...)
             ((all goal ...) s)))]))
 
 (define (take n f)
@@ -213,7 +211,7 @@
      #'(in-generator
          (let loop ([s (λ () 
                          ((fresh (x) goal ... (λ (a) (reify x a)))
-                          empty-s))])
+                          subst:empty))])
            (case-inf (s)
               '()
               [(a) (yield a)]
@@ -225,33 +223,17 @@
      #'(take n
              (λ ()
                ((fresh (x) goal ... (λ (a) (list (reify x a))))
-                empty-s)))]))
+                subst:empty)))]))
 
 (define-syntax (run* stx)
   (syntax-parse stx
     [(_ (x:id) g:expr ...+) 
      #'(run #f (x) g ...)]))
 
-;; walk based on skew binary random access lists
-(define (walk v s)
+(define (ext-s-check s x v)
   (cond
-    [(var? v)
-     (cond
-       [(k:lookup v s) 
-        => (lambda (a)
-             (let [(a (k:get-value a))]
-               (cond
-                 [(eq? v a) v]
-                 [else (walk a s)])))]
-       [else v])]
-    [else v]))
-
-(define safe-walk walk)
-
-(define (ext-s-check x v s)
-  (cond
-    [(occurs-check x v s) #f]
-    [else (ext-s x v s)]))
+    [(occurs-check s x v) #f]
+    [else (subst:extend s x v)]))
 
 (define-syntax case-inf
   (syntax-rules ()
@@ -283,13 +265,13 @@
 (define (== v w)
   (λ (s)
     (cond
-      [(unify #:occurs-check? #f v w s) => succeed]
+      [(unify s #:occurs-check? #f v w) => succeed]
       [else (fail s)])))
 
 (define (==-check v w)
   (λ (s)
     (cond
-      [(unify #:occurs-check? #t v w s) => succeed]
+      [(unify s #:occurs-check? #t v w) => succeed]
       [else (fail s)])))
 
 (define-syntax (all stx)
