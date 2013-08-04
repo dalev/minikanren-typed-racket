@@ -5,14 +5,15 @@
   racket/set
   racket/generator
   racket/sequence
+  (except-in racket/match ==)
   (for-syntax racket/base
               syntax/parse))
 (provide
   == ==-check 
   conde condi conda condu
-  all alli
+  all
   anye anyi
-  fail succeed
+  fail (rename-out [unit succeed])
   fresh run run* in-solutions
   project
   )
@@ -238,41 +239,55 @@
 (define-syntax case-inf
   (syntax-rules ()
     [(_ e on-zero ((a^) on-one) ((a f) on-choice))
-     (let ([a-inf e])
-       (cond
-         [(not a-inf) on-zero]
-         [(not (and 
-                 (pair? a-inf)
-                 (procedure? (cdr a-inf))))
-          (let ([a^ a-inf])
-            on-one)]
-         [else (let ([a (car a-inf)]
-                     [f (cdr a-inf)])
-                 on-choice)]))]))
+     (match e
+       [#f on-zero]
+       [(choice a f) on-choice]
+       [a^ on-one])]))
 
-(define-syntax mzero
-  (syntax-rules ()
-    ((_) #f)))
+(define mzero #f)
+(define (unit x) x)
 
-(define-syntax unit
-  (syntax-rules ()
-    ((_ a) a)))
+(define succeed unit)
+(define (fail _s) mzero)
 
-(define-syntax choice 
-  (syntax-rules ()
-    ((_ a f) (cons a f))))
+(struct choice (first rest))
+
+(define (bind a-inf g)
+  (case-inf a-inf
+    mzero 
+    ((a) (g a))
+    ((a f) (mplus (g a)
+              (lambdaf@ () (bind (f) g))))))
+
+(define (mplus a-inf f)
+  (case-inf a-inf
+    (f) 
+    ((a) (choice a f))
+    ((a f0) (choice a 
+              (lambdaf@ () (mplus (f0) f))))))
 
 (define (== v w)
-  (λ (s)
+  (lambda (s)
+    (or (unify s #:occurs-check? #f v w)
+        (fail s))))
+
+;; CR dalev: to do
+(define (/= v w)
+  (lambda (s)
     (cond
-      [(unify s #:occurs-check? #f v w) => succeed]
-      [else (fail s)])))
+      [(unify s v w #:occurs-check? #f)
+       =>
+       (lambda (s^)
+         ;; examine the new bindings in s^ (cf. 'prefix-s' in cKanren)
+         (void))]
+      [else 
+        ;; failed to unify [v] and [w] -- nothing more to do
+        s])))
 
 (define (==-check v w)
-  (λ (s)
-    (cond
-      [(unify s #:occurs-check? #t v w) => succeed]
-      [else (fail s)])))
+  (lambda (s)
+    (or (unify s #:occurs-check? #t v w)
+        (fail s))))
 
 (define-syntax (all stx)
   (syntax-parse stx
@@ -287,38 +302,12 @@
     [(_ (g0 g ...) c ...)
      (anye (all g0 g ...) (conde c ...))]))
 
-(define (succeed s) (unit s))
-
-(define (fail _s) (mzero))
-
-(define (bind a-inf g)
-  (case-inf a-inf
-    (mzero) 
-    ((a) (g a))
-    ((a f) (mplus (g a)
-              (lambdaf@ () (bind (f) g))))))
-
-(define (mplus a-inf f)
-  (case-inf a-inf
-    (f) 
-    ((a) (choice a f))
-    ((a f0) (choice a 
-              (lambdaf@ () (mplus (f0) f))))))
-
 (define-syntax (anye stx)
   (syntax-parse stx
     [(_ g1 g2) 
      #'(lambdag@ (s)
          (mplus (g1 s) 
            (lambdaf@ () (g2 s))))]))
-
-(define-syntax (alli stx)
-  (syntax-parse stx
-    [(_) #'succeed]
-    [(_ g) #'g]
-    [(_ g^ g ...) 
-     #'(lambdag@ (s) 
-         (bindi (g^ s) (alli g ...)))]))
 
 (define-syntax condi
   (syntax-rules (else)
@@ -336,7 +325,7 @@
 
 (define (bindi a-inf g)
   (case-inf a-inf
-    (mzero)
+    mzero
     ((a) (g a))
     ((a f) (mplusi (g a) 
               (lambdaf@ () (bindi (f) g))))))
