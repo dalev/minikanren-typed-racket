@@ -330,6 +330,7 @@
     ((a f) (mplusi (g a) 
               (lambdaf@ () (bindi (f) g))))))
 
+;; Interleave the results of [a-inf] and [f]
 (define (mplusi a-inf f)
   (case-inf a-inf
     (f) 
