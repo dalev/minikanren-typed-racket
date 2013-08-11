@@ -54,16 +54,11 @@
                  [ey (in-compound-struct y)])
          (field=? ex ey))))
 
-(define (atomic-struct? v) (not (compound-struct? v)))
-
 (define (compound-struct? v)
   (let-values ([(stype skipped?) (struct-info v)])
     (and stype (not skipped?))))
 
 (define-syntax-rule (or* x f ...) (or (f x) ...))
-
-(define (compound? x)
-  (or* x pair? vector? mpair? box? hash? compound-struct?))
 
 (define (unify #:occurs-check? [occurs-check? #f] s v^ w^)
   (define extend (if occurs-check? ext-s-check subst:extend))
