@@ -62,15 +62,6 @@
 
 (define-syntax-rule (or* x f ...) (or (f x) ...))
 
-(define (atom? x)
-  (or* x 
-       string? bytes? set?
-       regexp? pregexp? byte-regexp? byte-pregexp?
-       number?
-       boolean? char? symbol?
-       keyword? null? procedure? void? 
-       atomic-struct?))
-
 (define (compound? x)
   (or* x pair? vector? mpair? box? hash? compound-struct?))
 
