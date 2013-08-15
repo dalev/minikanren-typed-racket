@@ -206,16 +206,16 @@
 
 (define-syntax (run stx)
   (syntax-parse stx
-    [(_ n (x:id) goal:expr ...+)
+    [(_ n (x:id ...) goal:expr ...+)
      #'(take n
              (λ ()
-               ((fresh (x) goal ... (λ (a) (list (reify x a))))
+               ((fresh (x ...) goal ... (λ (a) (list (reify x a) ...)))
                 subst:empty)))]))
 
 (define-syntax (run* stx)
   (syntax-parse stx
-    [(_ (x:id) g:expr ...+) 
-     #'(run #f (x) g ...)]))
+    [(_ (x:id ...) g:expr ...+) 
+     #'(run #f (x ...) g ...)]))
 
 (define (ext-s-check s x v)
   (cond
