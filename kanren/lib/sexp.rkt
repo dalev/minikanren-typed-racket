@@ -15,6 +15,7 @@
         (anye (%anywhere fst %pred)
               (%anywhere snd %pred)))]))
 
+;; CR dalev: [%anywhere/u] and [%anywhere/a] don't seem quite right
 (define (%anywhere/u sexp %pred)
   (condu
     [(%pred sexp) succeed]

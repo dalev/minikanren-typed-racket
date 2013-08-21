@@ -9,6 +9,12 @@
 (define (%null x) (== '() x))
 (define (%pair p) (fresh (a d) (%cons p a d)))
 
+(define (%first l fst) (%car l fst))
+(define (%second l snd)
+  (fresh (tail)
+    (%cdr l tail)
+    (%car tail snd)))
+
 (define (%list l)
   (conde
     [(%null l) succeed]
