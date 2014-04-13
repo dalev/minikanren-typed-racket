@@ -1,5 +1,5 @@
-#lang setup/infotab
-(define name "Scheme core datastructures")
-(define blurb '("Blurb!"))
-(define primary-file "main.rkt")
-(define categories '(datastructures))
+#lang info
+(define version "0.9")
+(define name "core datastructures")
+(define deps '())
+(define collection 'use-pkg-name)
