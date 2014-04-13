@@ -9,7 +9,9 @@
   [rsplit2 (string? #:on char? . -> . (maybe/c (cons/c string? string?)))]
   [concat (->* ((listof string?)) (#:sep string?) string?)]
   [suffix? (string? #:suffix string? . -> . boolean?)]
-  [chop-suffix (string? #:suffix string? . -> . (maybe/c string?))])
+  [chop-suffix (string? #:suffix string? . -> . (maybe/c string?))]
+  [sub (string? #:pos natural-number/c #:len natural-number/c . -> . string?)]
+  )
 
 (define (lsplit2 str #:on on)
   (define on-idx
@@ -63,6 +65,9 @@
            (for/and ([a (in-string suffix (sub1 suffix-len) 0 -1)]
                      [b (in-string str (sub1 str-len) 0 -1)])
              (char=? a b))))))
+
+(define (sub str #:pos pos #:len len)
+  (substring str pos (+ pos len)))
 
 (define (chop-suffix str #:suffix suffix)
   (and (suffix? str #:suffix suffix)
