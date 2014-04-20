@@ -1,5 +1,5 @@
 #lang info
-(define version "0.9")
-(define name "core datastructures")
-(define deps '())
+(define version "0.1")
+(define name "racket port of kanren")
+(define deps '("racket-core"))
 (define collection 'use-pkg-name)
