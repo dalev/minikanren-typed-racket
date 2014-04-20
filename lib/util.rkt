@@ -1,5 +1,5 @@
 #lang racket/base
-(require "../main.rkt")
+(require "kanren.rkt")
 
 (provide (all-defined-out))
 
