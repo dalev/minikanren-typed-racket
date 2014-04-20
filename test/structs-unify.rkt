@@ -1,5 +1,5 @@
 #lang racket/base
-(require "../main.rkt"
+(require "../lib/kanren.rkt"
          (prefix-in U. rackunit))
 
 (struct fish (color weight) #:transparent)
