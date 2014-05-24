@@ -3,12 +3,13 @@
 
 (provide (all-defined-out))
 
+#;
 (define (%once g) (condu [g succeed] [else fail]))
 
 (define (%repeat g)
   (conde
     [g succeed]
-    [else (%repeat g)]))
+    [succeed (%repeat g)]))
 
 (define %never (%repeat fail))
  

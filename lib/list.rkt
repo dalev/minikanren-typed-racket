@@ -21,14 +21,13 @@
     [(%pair l)
       (fresh (d)
         (%cdr l d)
-        (%list d))]
-    [else fail]))
+        (%list d))]))
 
 (define (%member x l)
   (conde
     [(%null l) fail]
     [(%car l x) succeed]
-    [else
+    [succeed
       (fresh (d)
         (%cdr l d)
         (%member x d))]))
@@ -37,15 +36,16 @@
   (conde
     [(%null l) (%null out)]
     [(%car l x) (%cdr l out)]
-    [else (fresh (a d res)
-            (%cons l a d)
-            (%cons out a res)
-            (%rember x d res))]))
+    [succeed 
+      (fresh (a d res)
+        (%cons l a d)
+        (%cons out a res)
+        (%rember x d res))]))
 
 (define (%append l s out)
   (conde
     [(%null l) (== s out)]
-    [else 
+    [succeed 
       (fresh (a d res)
         (%cons l a d)
         (%cons out a res)

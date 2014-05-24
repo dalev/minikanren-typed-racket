@@ -10,10 +10,10 @@
               syntax/parse))
 (provide
   == ==-check 
-  conde condi conda condu
+  conde
   all
-  anye anyi
-  fail (rename-out [unit succeed])
+  any
+  fail succeed
   fresh run run* in-solutions
   project
   )
@@ -23,10 +23,6 @@
 (define-syntax lambdag@
   (syntax-rules ()
     ((_ (s) e) (lambda (s) e))))
-
-(define-syntax lambdaf@
-  (syntax-rules ()
-    ((_ () e) (lambda () e))))
 
 (define (both is? a b) (and (is? a) (is? b)))
 
@@ -182,15 +178,28 @@
           (let*-values ([(x s) (subst:create-variable 'x s)] ...)
             ((all goal ...) s)))]))
 
+(define-syntax (stream-case stx)
+  (syntax-parse stx
+                #:literals (empty singleton choice incomplete)
+    [(_ stream
+        [empty empty-result:expr] 
+        [(singleton s:id) singleton-result:expr] 
+        [(choice a:id f-choice:id) choice-result:expr]
+        [(incomplete f-incomplete:id) incomplete-result:expr])
+     #'(match stream
+         [#f empty-result]
+         [(choice a f-choice) choice-result]
+         [(and (? procedure?) f-incomplete) incomplete-result]
+         [s singleton-result])]))
+
 (define (take n f)
   (if (and n (zero? n))
     '()
-    (case-inf (f)
-              '()
-              [(a) (list a)]
-              [(a f)
-               (cons a
-                     (take (and n (- n 1)) f))])))
+    (stream-case (f)
+      [empty '()]
+      [(singleton a) (list a)]
+      [(choice a f) (cons a (take (and n (- n 1)) f))]
+      [(incomplete f) (take n f)])))
 
 (define-syntax (in-solutions stx)
   (syntax-parse stx
@@ -199,10 +208,11 @@
          (let loop ([s (λ () 
                          ((fresh (x) goal ... (λ (a) (reify x a)))
                           subst:empty))])
-           (case-inf (s)
-              '()
-              [(a) (yield a)]
-              [(a f) (begin (yield a) (loop f))])))]))
+           (stream-case (s)
+              [empty '()]
+              [(singleton a) (yield a)]
+              [(choice a f) (begin (yield a) (loop f))]
+              [(incomplete f) (loop f)])))]))
 
 (define-syntax (run stx)
   (syntax-parse stx
@@ -222,138 +232,71 @@
     [(occurs-check s x v) #f]
     [else (subst:extend s x v)]))
 
-(define-syntax case-inf
-  (syntax-rules ()
-    [(_ e on-zero ((a^) on-one) ((a f) on-choice))
-     (match e
-       [#f on-zero]
-       [(choice a f) on-choice]
-       [a^ on-one])]))
+(define singleton 'singleton)
+(define incomplete 'incomplete)
+(define empty '())
 
 (define mzero #f)
-(define (unit x) x)
-
-(define succeed unit)
-(define (fail _s) mzero)
 
 (struct choice (first rest))
 
 (define (bind a-inf g)
-  (case-inf a-inf
-    mzero 
-    ((a) (g a))
-    ((a f) (mplus (g a)
-              (lambdaf@ () (bind (f) g))))))
+  (stream-case a-inf
+    [empty mzero]
+    [(singleton a) (g a)]
+    [(choice a f) 
+     (mplus (g a) (thunk (bind (f) g)))]
+    [(incomplete f) (thunk (bind (f) g))]))
+
+(define-syntax (bind* stx)
+  (syntax-parse stx
+    [(_ e) #'e]
+    [(_ e g0 g ...)
+     #'(bind* (bind e g0) g ...)]))
 
 (define (mplus a-inf f)
-  (case-inf a-inf
-    (f) 
-    ((a) (choice a f))
-    ((a f0) (choice a 
-              (lambdaf@ () (mplus (f0) f))))))
+  (stream-case a-inf
+    [empty (f)] 
+    [(singleton a) (choice a f)]
+    [(choice a f0) 
+     ;; interleaving
+     (choice a (thunk (mplus (f) f0)))]
+    [(incomplete f0)
+     (thunk (mplus (f) f0))]))
+
+(define-syntax (mplus* stx)
+  (syntax-parse stx
+    [(_ e) #'e]
+    [(_ e0 e ...)
+     #'(mplus e0 (thunk (mplus* e ...)))]))
 
 (define (== v w)
   (lambda (s)
     (or (unify s #:occurs-check? #f v w)
-        (fail s))))
+        mzero)))
 
-;; CR dalev: to do
-(define (/= v w)
-  (lambda (s)
-    (cond
-      [(unify s v w #:occurs-check? #f)
-       =>
-       (lambda (s^)
-         ;; examine the new bindings in s^ (cf. 'prefix-s' in cKanren)
-         (void))]
-      [else 
-        ;; failed to unify [v] and [w] -- nothing more to do
-        s])))
+(define succeed (== #t #t))
+(define fail (== #t #f))
 
 (define (==-check v w)
   (lambda (s)
     (or (unify s #:occurs-check? #t v w)
-        (fail s))))
+        mzero)))
 
 (define-syntax (all stx)
   (syntax-parse stx
-    [(_) #'succeed]
-    [(_ g) #'g]
-    [(_ g^ g ...) #'(lambdag@ (s) (bind (g^ s) (all g ...)))]))
+    [(_ g0 g ...) #'(lambda (s) (bind* (g0 s) g ...))]))
 
-(define-syntax conde
-  (syntax-rules (else)
-    [(_) fail]
-    [(_ (else g0 g ...)) (all g0 g ...)]
-    [(_ (g0 g ...) c ...)
-     (anye (all g0 g ...) (conde c ...))]))
-
-(define-syntax (anye stx)
+(define-syntax (conde stx)
   (syntax-parse stx
-    [(_ g1 g2) 
-     #'(lambdag@ (s)
-         (mplus (g1 s) 
-           (lambdaf@ () (g2 s))))]))
+    [(_ (g0 g ...) (g1 g^ ...) ...)
+     #'(lambda (s)
+         (thunk (mplus* (bind* (g0 s) g ...)
+                        (bind* (g1 s) g^ ...)
+                        ...)))]))
 
-(define-syntax condi
-  (syntax-rules (else)
-    [(_) fail]
-    [(_ (else g0 g ...)) (all g0 g ...)]
-    [(_ (g0 g ...) c ...)
-     (anyi (all g0 g ...) (condi c ...))]))
-
-(define-syntax (anyi stx)
+(define-syntax (any stx)
   (syntax-parse stx
-    [(_ g1 g2) 
-     #'(lambdag@ (s) 
-         (mplusi (g1 s) 
-                 (lambdaf@ () (g2 s))))]))
-
-(define (bindi a-inf g)
-  (case-inf a-inf
-    mzero
-    ((a) (g a))
-    ((a f) (mplusi (g a) 
-              (lambdaf@ () (bindi (f) g))))))
-
-;; Interleave the results of [a-inf] and [f]
-(define (mplusi a-inf f)
-  (case-inf a-inf
-    (f) 
-    ((a) (choice a f))
-    ((a f0) (choice a 
-                    (lambdaf@ () (mplusi (f) f0))))))
-
-(define-syntax conda
-  (syntax-rules (else)
-    [(_) fail]
-    [(_ (else g0 g ...)) (all g0 g ...)]
-    [(_ (g0 g ...) c ...)
-     (ifa g0 (all g ...) (conda c ...))]))
-
-(define-syntax condu
-  (syntax-rules (else)
-    [(_) fail]
-    [(_ (else g0 g ...)) (all g0 g ...)]
-    [(_ (g0 g ...) c ...)
-     (ifu g0 (all g ...) (condu c ...))]))
-
-(define-syntax ifa
-  (syntax-rules ()
-    [(_ g0 g1 g2)
-     (lambdag@ (s)
-       (let ([s-inf (g0 s)] (g^ g1))
-         (case-inf s-inf
-           (g2 s)
-           ((s) (g^ s))
-           ((s f) (bind s-inf g^)))))]))
-
-(define-syntax ifu
-  (syntax-rules ()
-    [(_ g0 g1 g2)
-     (lambdag@ (s)
-       (let ([s-inf (g0 s)] [g^ g1])
-         (case-inf s-inf
-           (g2 s)
-           ((s) (g^ s))
-           ((s f) (g^ s)))))]))
+    [(_ g1 g2 ...) 
+     #'(lambda (s) 
+         (mplus* (g1 s) (g2 s) ...))]))
