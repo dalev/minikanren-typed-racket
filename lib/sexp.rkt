@@ -31,13 +31,13 @@
 
 (define (%find* nested-record keys value)
   (conde
-    ((%null keys) (== value nested-record))
-    (succeed
+    [(%null keys) (== value nested-record)]
+    [succeed
       (fresh (key1 rest-keys)
         (%cons keys key1 rest-keys)
         (fresh (sub-record)
           (%find nested-record key1 sub-record)
-          (%find* sub-record rest-keys value))))))
+          (%find* sub-record rest-keys value)))]))
 
 (module+ test
   (require (except-in rackunit fail))
