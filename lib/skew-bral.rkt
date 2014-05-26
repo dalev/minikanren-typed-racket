@@ -48,16 +48,14 @@
 
 ;; Transitive closure of [subst-find]
 (define (walk v s)
-  (cond
-    [(var? v)
-     (cond
-       [(subst-find s v) 
-        => (lambda (a)
-             (if (eq? v a)
-               v
-               (walk a s)))]
-       [else v])]
-    [else v]))
+  (if (var? v)
+    (match (subst-find s v) 
+      [#f #f]
+      [answer
+        (if (eq? v answer)
+          v
+          (walk answer s))])
+    v))
 
 ; --- helpers
 
