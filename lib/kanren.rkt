@@ -16,7 +16,14 @@
   fail succeed
   fresh run run* in-solutions
   project
+
+  ;; committed choice stuff
+  once!
+  ifa conda
+  ifu condu
   )
+
+(module+ test (require (except-in rackunit fail)))
 
 (define var? subst:var?)
 
@@ -67,6 +74,9 @@
            (define w (subst:walk w^ s))
            (cond
              [(eq? v w) s]
+             [(and (both var? v w)
+                   (subst:var=? v w))
+              s]
              [(var? v) (extend s v w)]
              [(var? w) (extend s w v)]
              [(both pair? v w)
@@ -160,23 +170,23 @@
 
 (define-syntax (project stx)
   (syntax-parse stx
-    [(_ (x:id ...) goal:expr ...+)
+    [(_ (x:id ...) goal:expr g:expr ...)
      #:fail-when (check-duplicate-identifier
                    (syntax->list #'(x ...)))
                    "duplicate variable name"
      #'(lambdag@ (s)
                  (let ([x (walk* x s)] ...)
-                   ((all goal ...) s)))]))
+                   (bind* (goal s) g ...)))]))
 
 (define-syntax (fresh stx)
   (syntax-parse stx
-    [(_ (x:id ...) goal:expr ...+)
+    [(_ (x:id ...) goal:expr g:expr ...)
      #:fail-when (check-duplicate-identifier
                    (syntax->list #'(x ...)))
                    "duplicate variable name"
       #'(λ (s)
-          (let*-values ([(x s) (subst:create-variable 'x s)] ...)
-            ((all goal ...) s)))]))
+           (let*-values ([(x s) (subst:create-variable 'x s)] ...)
+             (bind* (goal s) g ...)))]))
 
 (define-syntax (stream-case stx)
   (syntax-parse stx
@@ -218,7 +228,7 @@
   (syntax-parse stx
     [(_ n (x:id ...) goal:expr ...+)
      #'(take n
-             (λ ()
+             (thunk
                ((fresh (x ...) goal ... (λ (a) (list (reify x a) ...)))
                 subst:empty)))]))
 
@@ -240,8 +250,8 @@
 
 (struct choice (first rest))
 
-(define (bind a-inf g)
-  (stream-case a-inf
+(define (bind stream g)
+  (stream-case stream
     [empty mzero]
     [(singleton a) (g a)]
     [(choice a f) 
@@ -253,6 +263,30 @@
     [(_ e) #'e]
     [(_ e g0 g ...)
      #'(bind* (bind e g0) g ...)]))
+
+;; CR dalev: consider whether [all] wants to use this
+(define (bind-in-order stream g)
+  (stream-case stream
+    [empty mzero]
+    [(singleton a) (g a)]
+    [(choice a f)
+     (mappend (g a) (thunk (bind (f) g)))]
+    [(incomplete f) (thunk (bind (f) g))]))
+
+(define (mappend stream f)
+  (stream-case stream
+    [empty (f)]
+    [(singleton a) (choice a f)]
+    [(choice a f0)
+     (choice a (thunk (mappend (f0) f)))]
+    [(incomplete f0)
+     (thunk (mappend (f0) f))]))
+
+(define-syntax (bind-in-order* stx)
+  (syntax-parse stx
+    [(_ e) #'e]
+    [(_ e g0 g ...)
+     #'(bind-in-order* (bind-in-order e g0) g ...)]))
 
 (define (mplus a-inf f)
   (stream-case a-inf
@@ -285,18 +319,110 @@
 
 (define-syntax (all stx)
   (syntax-parse stx
+    [(_) #'succeed]
+    [(_ g) #'g]
     [(_ g0 g ...) #'(lambda (s) (bind* (g0 s) g ...))]))
+
+(module+ test
+  (check-equal?
+    (run* (x y)
+      (all (any (== x 1) (== x 2))
+           (any (== y 3) fail (== y 4) (== y 5))))
+    (list '(1 3) '(2 3) 
+          '(1 4) '(2 4) 
+          '(1 5) '(2 5))))
 
 (define-syntax (conde stx)
   (syntax-parse stx
     [(_ (g0 g ...) (g1 g^ ...) ...)
      #'(lambda (s)
-         (thunk (mplus* (bind* (g0 s) g ...)
-                        (bind* (g1 s) g^ ...)
-                        ...)))]))
+         (thunk 
+           (mplus* (bind* (g0 s) g ...)
+                   (bind* (g1 s) g^ ...)
+                   ...)))]))
 
 (define-syntax (any stx)
   (syntax-parse stx
     [(_ g1 g2 ...) 
      #'(lambda (s) 
          (mplus* (g1 s) (g2 s) ...))]))
+
+#|
+if g0 succeeds, then throw away g2 and solve g1
+if g0 fails, then throw away g1 and solve with g2
+|#
+(define (ifa g0 g1 g2)
+  (lambda (s)
+    (let loop ([g0-solutions (g0 s)])
+      (stream-case g0-solutions
+        [empty (g2 s)]
+        [(singleton a) (g1 a)]
+        [(choice _ _)
+         (bind g0-solutions g1)]
+        [(incomplete f)
+         (thunk (loop (f)))]))))
+
+(module+ test
+
+  (check-equal?
+    (run* (x)
+      (fresh (y)
+        (ifa (any (== 3 4)
+                  (== 'a 'b))
+             (== x 'should-not-get-here)
+             (== x 'only-solution))))
+    (list '(only-solution)))
+
+  (check-equal?
+    (run* (x)
+      (fresh (y)
+        (ifa (any (== y 2)
+                  (== y 4))
+             (== x y)
+             (== x 'should-not-get-here))))
+    (list '(2) '(4))))
+
+(define-syntax (conda stx)
+  (syntax-parse stx 
+    [(_ (g0 g ...)) #'(all g0 g ...)]
+    [(_ (g0 g ...) (g1 g^ ...) ...)
+     #'(ifa g0 
+            (all g ...)
+            (conda (g1 g^ ...) ...))]))
+
+(define (once! g)
+  (lambda (s)
+    (let loop ([solutions (g s)])
+      (stream-case solutions
+        [empty mzero]
+        [(singleton s) s]
+        [(choice a _) a]
+        [(incomplete f)
+         (thunk (loop (f)))]))))
+
+(define (ifu g0 g1 g2)
+  (ifa (once! g0) g1 g2))
+
+(define-syntax (condu stx)
+  (syntax-parse stx
+    [(_ (g0 g ...))
+     #'(ifu g0 (all g ...) fail)]
+    [(_ (g0 g ...) (g1 g^ ...) ...)
+     #'(ifu g0 
+            (all g ...)
+            (condu (g1 g^ ...) ...))]))
+
+(module+ test
+  (check-equal?
+    (run* (x)
+      (fresh (y)
+        (condu 
+          [fail (== x 'impossible)]
+          [(any (== y 17)
+                (== y 42))
+           (any (== x y)
+                (== y x))]
+          [(== x 34) succeed])))
+    ;; second condu question succeeds once, rhs succeeds twice
+    (list '(17) '(17))))
+

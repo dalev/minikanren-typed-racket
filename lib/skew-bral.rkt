@@ -6,8 +6,10 @@
   extend
   walk
   create-variable
-  var?
+  var? var=?
   )
+
+(module+ test (require rackunit))
 
 (struct bral-empty ())
 (struct bral-node (weight tree rest))
@@ -22,7 +24,14 @@
 
 ;; Finally, a substitution is a BRAL that may contain variables
 (struct var (name idx))
+
+;; CR dalev: the subst wrapper is superfluous because we should have
+;; (subst-size s) = (bral-node-weight (subst-bral s))
 (struct subst (size bral))
+
+(define (var=? v w)
+  (and (eq? (var-name v) (var-name w))
+       (eqv? (var-idx v) (var-idx w))))
 
 (define subst-empty (subst 0 (bral-empty)))
 
@@ -50,7 +59,8 @@
      (cond
        [(subst-find s v) 
         => (lambda (a)
-             (if (eq? v a)
+             ;; CR dalev: does (eq? a v) suffice here?
+             (if (and (var? a) (var=? v a))
                v
                (walk a s)))]
        [else v])]
@@ -115,3 +125,35 @@
      (if (fx< i weight)
        (bral-node weight (update-tree weight i v tree) bral*)
        (bral-node weight tree (update (fx- i weight) v bral*)))]))
+
+(module+ test
+  (define-values [sub x y z w]
+    (let*-values ([(x s) (create-variable 'x subst-empty)]
+                  [(y s) (create-variable 'y s)]
+                  [(z s) (create-variable 'z s)]
+                  [(w s) (create-variable 'w s)])
+      (values s x y z w)))
+
+  (check-equal? (subst-size sub) 4)
+
+  (let* ([s sub]
+         [s (extend s w 42)]
+         [s (extend s x 17)]
+         [s (extend s y x)])
+    (check-equal? (walk w s) 42)
+    (check-equal? (walk x s) 17)
+    (check-equal? (walk y s) 17)
+    (check-equal? (walk z s) z))
+
+  (let* ([a-node (bral-node
+                   15
+                   (node
+                     'a
+                     (node 'b (node 'c 'd 'e) (node 'f 'g 'h))
+                     (node 'i (node 'j 'k 'l) (node 'm 'n 'o)))
+                   (bral-empty))]
+         [a-subst (subst 15 a-node)])
+    (check-equal? (walk (var 'arbitrary-name 12) a-subst) 'c))
+  )
+
+
