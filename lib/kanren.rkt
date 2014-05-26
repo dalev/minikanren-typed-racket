@@ -129,7 +129,7 @@
                    ([a (in-vector v)])
           (walk* a s))]
       [(compound-struct? v)
-       (compound-struct-map (λ (a) (walk* a s)) v)]
+       (compound-struct-map (lambda (a) (walk* a s)) v)]
       [(box? v) (box (walk* (unbox v) s))]
       [(mpair? v)
        (mcons (walk* (mcar v) s)
@@ -148,7 +148,7 @@
     (let ([v (subst:walk v s)])
       (cond
         [(var? v)
-         (cond [(hash-ref table v #f) => (λ (x) x)]
+         (cond [(hash-ref table v #f) => identity]
                [else
                  (set! count (+ 1 count))
                  (define name (reify-name count))
@@ -181,7 +181,7 @@
      #:fail-when (check-duplicate-identifier
                    (syntax->list #'(x ...)))
                    "duplicate variable name"
-      #'(λ (s)
+      #'(lambda (s)
            (let*-values ([(x s) (subst:create-variable 'x s)] ...)
              (bind* (goal s) g ...)))]))
 
@@ -212,8 +212,8 @@
   (syntax-parse stx
     [(_ (x:id) goal ...+)
      #'(in-generator
-         (let loop ([s (λ () 
-                         ((fresh (x) goal ... (λ (a) (reify x a)))
+         (let loop ([s (thunk
+                         ((fresh (x) goal ... (lambda (a) (reify x a)))
                           subst:empty))])
            (stream-case (s)
               [empty '()]
@@ -226,7 +226,7 @@
     [(_ n (x:id ...) goal:expr ...+)
      #'(take n
              (thunk
-               ((fresh (x ...) goal ... (λ (a) (list (reify x a) ...)))
+               ((fresh (x ...) goal ... (lambda (a) (list (reify x a) ...)))
                 subst:empty)))]))
 
 (define-syntax (run* stx)
