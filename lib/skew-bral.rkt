@@ -17,6 +17,10 @@
 (module+ test (require rackunit racket/function))
 
 (module internal-structures racket/base
+  ;; CR dalev: it seems like merely implementing the gen:equal+hash interface
+  ;; on these structures causes the zebra benchmark to slow down 37%!
+  ;; Investigate this more -- I'm pretty sure the unifier does not suddenly
+  ;; start comparing substitutions.
   (require racket/match racket/fixnum)
   (provide (struct-out branch)
            (struct-out empty-forest)
