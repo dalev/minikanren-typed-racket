@@ -83,9 +83,7 @@
   (let-values ([(stype skipped?) (struct-info v)])
     (and stype (not skipped?))))
 
-(define-syntax-rule (or* x f ...) (or (f x) ...))
-
-(define (unify #:occurs-check? [occurs-check? #f] s v^ w^)
+(define (unify #:occurs-check? occurs-check? s v^ w^)
   (define extend (if occurs-check? ext-s-check subst:extend))
   (let loop ([v^ v^]
              [w^ w^]

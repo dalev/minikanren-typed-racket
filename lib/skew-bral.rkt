@@ -26,14 +26,14 @@
     (match* {b1 b2}
       [{(branch v1 e1 o1)
         (branch v2 e2 o2)}
-      (and (rec-equal? v1 v2)
-            (rec-equal? e1 e2)
-            (rec-equal? o1 o2))]))
+        (and (rec-equal? v1 v2)
+             (rec-equal? e1 e2)
+             (rec-equal? o1 o2))]))
 
   (define (branch-hash b rec-hash)
     (match b
       [(branch v even odd)
-      (rec-hash (list v even odd))]))
+       (rec-hash (list v even odd))]))
 
   (define (branch-hash2 b rec-hash) (branch-hash b rec-hash))
 
@@ -42,8 +42,8 @@
   (struct branch (val even odd)
           #:methods gen:equal+hash
           [(define equal-proc branch=?)
-          (define hash-proc branch-hash)
-          (define hash2-proc branch-hash2)])
+           (define hash-proc branch-hash)
+           (define hash2-proc branch-hash2)])
 
 
   (define (empty-forest=? f1 f2 _)
@@ -56,20 +56,20 @@
   (struct empty-forest ()
           #:methods gen:equal+hash
           [(define equal-proc empty-forest=?)
-          (define (hash-proc a b) empty-forest-hash)
-          (define (hash2-proc a b) empty-forest-hash2)])
+           (define (hash-proc a b) empty-forest-hash)
+           (define (hash2-proc a b) empty-forest-hash2)])
 
   (define (cons-forest=? f1 f2 rec-equal?)
     (match* {f1 f2}
       [{(cons-forest w1 t1 f1*) (cons-forest w2 t2 f2*)}
-      (and (rec-equal? w1 w2)
-            (rec-equal? t1 t2)
-            (rec-equal? f1* f2*))]))
+                                (and (rec-equal? w1 w2)
+                                     (rec-equal? t1 t2)
+                                     (rec-equal? f1* f2*))]))
 
   (define (cons-forest-hash f rec-hash)
     (match f
       [(cons-forest weight tree sub-forest)
-      (rec-hash (list weight tree sub-forest))]))
+       (rec-hash (list weight tree sub-forest))]))
 
   (define (cons-forest-hash2 f rec-hash)
     (cons-forest-hash f rec-hash))
@@ -77,17 +77,17 @@
   (struct cons-forest (weight tree child)
           #:methods gen:equal+hash
           [(define equal-proc cons-forest=?)
-          (define hash-proc cons-forest-hash)
-          (define hash2-proc cons-forest-hash2)])
+           (define hash-proc cons-forest-hash)
+           (define hash2-proc cons-forest-hash2)])
 
   (define (sbral=? s1 s2 rec-equal?)
     (and (fx= (sbral-size s1) (sbral-size s2))
-        (equal? (sbral-forest s1) (sbral-forest s2))))
+         (rec-equal? (sbral-forest s1) (sbral-forest s2))))
 
   (define (sbral-hash s rec-hash)
     (match s
       [(sbral size forest)
-      (rec-hash (list size forest))]))
+       (rec-hash (list size forest))]))
 
   (define (sbral-hash2 s rec-hash)
     (sbral-hash s rec-hash))
@@ -96,8 +96,8 @@
   (struct sbral (size forest)
           #:methods gen:equal+hash
           [(define equal-proc sbral=?)
-          (define hash-proc sbral-hash)
-          (define hash2-proc sbral-hash2)]))
+           (define hash-proc sbral-hash)
+           (define hash2-proc sbral-hash2)]))
 
 (require 'internal-structures)
 
