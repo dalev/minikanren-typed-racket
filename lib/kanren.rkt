@@ -1,6 +1,6 @@
 #lang racket/base
 (require
-  (prefix-in subst: "skew-bral.rkt")
+  "skew-bral.rkt"
   racket/function
   racket/set
   racket/generator
@@ -25,7 +25,29 @@
 
 (module+ test (require (except-in rackunit fail)))
 
-(define var? subst:var?)
+;; A substitution is just a sbral that may contain logic variables
+(struct var (name index))
+
+(define subst:empty sbral-empty)
+(define (subst:size subst) (sbral-size subst))
+
+(define (subst:create-variable name subst)
+  (define variable (var name (subst:size subst)))
+  (values variable (sbral-cons variable subst)))
+
+(define (subst:extend subst variable value)
+  (sbral-set subst (var-index variable) value))
+
+;; Transitive closure of [sbral-ref] by chasing variable chains to the end
+(define (subst:walk v sbral)
+  (if (var? v)
+    (match (sbral-ref sbral (var-index v)) 
+      [#f #f]
+      [answer
+        (if (eq? v answer)
+          v
+          (subst:walk answer sbral))])
+    v))
 
 (define-syntax lambdag@
   (syntax-rules ()

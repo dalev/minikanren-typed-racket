@@ -2,60 +2,56 @@
 (require racket/fixnum
          racket/match)
 (provide
-  (rename-out [subst-empty empty])
-  extend
-  walk
-  create-variable
-  var?
-  )
+  sbral-empty
+  sbral-cons
+  sbral-set
+  sbral-ref
+  sbral-size)
 
 (module+ test (require rackunit))
 
-(struct bral-empty ())
-(struct bral-node (weight tree rest))
-
-;; Tree branches inside the BRAL:
-(struct node (val even odd))
+;; (Tree a) = (branch a (Tree a) (Tree a)) U a
 ;; At the leaves, we just have a non-node value.
+(struct branch (val even odd))
 
-;(define-type (Tree a)
-;             (U (node a (Tree a) (Tree a))
-;                a))
+;; (Forest a) = (empty-forest) U (cons-forest fixnum? (Tree a) (Forest a))
+(struct empty-forest ())
+(struct cons-forest (weight tree child))
 
-;; Finally, a substitution is a BRAL that may contain variables
-(struct var (name idx))
+;; (Sbral a) = (sbral fixnum? (Forest a))
+(struct sbral (size forest))
 
-(struct subst (size bral))
+(define (forest-weight forest)
+  (match forest
+    [(empty-forest) 0]
+    [(cons-forest weight _ child-forest)
+     (+ weight (forest-weight child-forest))]))
 
-(define subst-empty (subst 0 (bral-empty)))
+(define (invariant? sbral)
+  (= (sbral-size sbral) 
+     (forest-weight (sbral-forest sbral))))
 
-(define (create-variable name sub)
-  (match sub
-    [(subst size bral)
-     (let ([x (var name size)])
-       (values x (subst (fx+ 1 size) (insert x bral))))]))
+(define sbral-empty (sbral 0 (empty-forest)))
+(module+ test (check-true (invariant? sbral-empty)))
 
-(define (from-tail i sub-size)
-  (fx- (fx- sub-size 1) i))
+(define (sbral-cons elt s)
+  (match s
+    [(sbral size forest)
+     (sbral (fx+ 1 size) (forest-add forest elt))]))
 
-(define (subst-find sub v)
-  (lookup (from-tail (var-idx v) (subst-size sub)) (subst-bral sub)))
+(define (from-tail i sbral-size)
+  (fx- (fx- sbral-size 1) i))
 
-(define (extend sub a-var v)
-  (match sub
-    [(subst size bral)
-     (subst size (update (from-tail (var-idx a-var) size) v bral))]))
+(define (sbral-ref sbral index)
+  (forest-ref (sbral-forest sbral)
+              (from-tail index (sbral-size sbral))))
 
-;; Transitive closure of [subst-find]
-(define (walk v s)
-  (if (var? v)
-    (match (subst-find s v) 
-      [#f #f]
-      [answer
-        (if (eq? v answer)
-          v
-          (walk answer s))])
-    v))
+(define (sbral-set s index v)
+  (match s
+    [(sbral size forest)
+     (sbral size (forest-set forest 
+                             (from-tail index size) 
+                             v))]))
 
 ; --- helpers
 
@@ -63,88 +59,96 @@
 
 (define (half n) (fxrshift n 1))
 
-(define (insert v bral)
-  (match bral
-    [(bral-node w0 tree0 (bral-node w1 tree1 bral*))
+;; Produce a new forest with [v] at the logical "end"
+(define (forest-add forest elt)
+  (match forest
+    [(cons-forest w0 tree0 (cons-forest w1 tree1 sub-forest))
      (if (fx= w0 w1)
-       (bral-node (fx+ 1 (fx+ w0 w1))
-                  (node v tree0 tree1)
-                  bral*)
-       (bral-node 1 v bral))]
-    [_ (bral-node 1 v bral)]))
+       (cons-forest (fx+ 1 (fx+ w0 w1))
+                    (branch elt tree0 tree1)
+                    sub-forest)
+       (cons-forest 1 elt forest))]
+    [_ (cons-forest 1 elt forest)]))
 
-(define (lookup-tree w i t)
+(define (tree-ref t w i)
   (cond
-    [(node? t)
+    [(branch? t)
      (if (fxzero? i) 
-       (node-val t)
+       (branch-val t)
        (let [(w/2 (half w))]
          (if (fx<= i w/2)
-           (lookup-tree w/2 (fx- i 1) (node-even t))
-           (lookup-tree w/2 (fx- (fx- i 1) w/2) (node-odd t)))))]
+           (tree-ref (branch-even t) w/2 (fx- i 1))
+           (tree-ref (branch-odd t)  w/2 (fx- (fx- i 1) w/2)))))]
     [else
       ;; [t] is the value sitting at this leaf of the tree.
       (if (fxzero? i) t #f)]))
 
-(define (lookup i ls)
-  (match ls 
-    [(bral-empty) #f]
-    [(bral-node weight tree ls*)
+(define (forest-ref forest i)
+  (match forest
+    [(empty-forest) #f]
+    [(cons-forest weight tree sub-forest)
      (if (fx< i weight)
-       (lookup-tree weight i tree)
-       (lookup (fx- i weight) ls*))]))
+       (tree-ref tree weight i)
+       (forest-ref sub-forest (fx- i weight)))]))
 
-(define (update-tree w i v t)
+(define (tree-set t w i v)
   (match t
-    [(node t-val t-even t-odd)
+    [(branch t-val t-even t-odd)
      (if (fxzero? i) 
-       (node v t-even t-odd)
+       (branch v t-even t-odd)
        (let [(w/2 (half w))]
          (if (fx<= i w/2)
-           (node t-val
-                 (update-tree w/2 (fx- i 1) v t-even)
-                 t-odd)
-           (node t-val
-                 t-even
-                 (update-tree w/2 (fx- (fx- i 1) w/2) v t-odd)))))]
-    [_ (if (fxzero? i) v (error 'update-tree "illegal index"))]))
+           (branch t-val
+                   (tree-set t-even w/2 (fx- i 1) v)
+                   t-odd)
+           (branch t-val
+                   t-even
+                   (tree-set t-odd w/2 (fx- (fx- i 1) w/2) v)))))]
+    [_ (if (fxzero? i)
+         v 
+         ;; CR dalev: throw range error
+         (raise-argument-error 'tree-set "index too big" i))]))
 
-(define (update i v bral)
-  (match bral
-    [(bral-empty)  (error 'k:update "illegal index ~s ~s" i v)]
-    [(bral-node weight tree bral*)
+(define (forest-set forest i v)
+  (match forest
+    [(empty-forest) 
+     ;; CR dalev: throw range error
+     (raise-argument-error 'forest-set "index too big" i)]
+    [(cons-forest weight tree sub-forest)
      (if (fx< i weight)
-       (bral-node weight (update-tree weight i v tree) bral*)
-       (bral-node weight tree (update (fx- i weight) v bral*)))]))
+       (cons-forest weight 
+                    (tree-set tree weight i v) 
+                    sub-forest)
+       (cons-forest weight 
+                    tree 
+                    (forest-set sub-forest (fx- i weight) v)))]))
 
 (module+ test
-  (define-values [sub x y z w]
-    (let*-values ([(x s) (create-variable 'x subst-empty)]
-                  [(y s) (create-variable 'y s)]
-                  [(z s) (create-variable 'z s)]
-                  [(w s) (create-variable 'w s)])
-      (values s x y z w)))
+  (define sbral-4 
+    (sbral-cons 'x (sbral-cons 'y (sbral-cons 'z (sbral-cons 'w sbral-empty)))))
 
-  (check-equal? (subst-size sub) 4)
+  (check-equal? (sbral-size sbral-4) 4)
+  (check-true (invariant? sbral-4))
 
-  (let* ([s sub]
-         [s (extend s w 42)]
-         [s (extend s x 17)]
-         [s (extend s y x)])
-    (check-equal? (walk w s) 42)
-    (check-equal? (walk x s) 17)
-    (check-equal? (walk y s) 17)
-    (check-equal? (walk z s) z))
+  (let* ([s sbral-4]
+         [s (sbral-set s 0 42)]
+         [s (sbral-set s 3 17)]
+         [s (sbral-set s 2 (sbral-ref s 3))])
 
-  (let* ([a-node (bral-node
+    (check-equal? (sbral-ref s 0) 42)
+    (check-equal? (sbral-ref s 1) 'z)
+    (check-equal? (sbral-ref s 2) 17)
+    (check-equal? (sbral-ref s 3) 17))
+
+  (let* ([a-forest (cons-forest
                    15
-                   (node
+                   (branch
                      'a
-                     (node 'b (node 'c 'd 'e) (node 'f 'g 'h))
-                     (node 'i (node 'j 'k 'l) (node 'm 'n 'o)))
-                   (bral-empty))]
-         [a-subst (subst 15 a-node)])
-    (check-equal? (walk (var 'arbitrary-name 12) a-subst) 'c))
+                     (branch 'b (branch 'c 'd 'e) (branch 'f 'g 'h))
+                     (branch 'i (branch 'j 'k 'l) (branch 'm 'n 'o)))
+                   (empty-forest))]
+         [a-sbral (sbral 15 a-forest)])
+    (check-equal? (sbral-ref a-sbral 12) 'c))
   )
 
 
