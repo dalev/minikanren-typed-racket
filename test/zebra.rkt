@@ -83,3 +83,19 @@
         (fresh (t1 t2 t3 t4)
           (membo `(,t1 ,t2 ,t3 zebra ,t4) h)))))) ;?
 
+(module+ test
+  (require rackunit)
+  (define expected-solution
+    '((((norwegian kools water fox yellow)
+        (ukrainian chesterfields tea horse blue)
+        (englishman oldgolds milk snails red)
+        (spaniard luckystrikes oj dog ivory)
+        (japanese parliaments coffee zebra green)))))
+
+  (check-equal? (zebrao) expected-solution))
+
+(module+ main
+  (define n 500)
+  (printf "Timing ~a runs...~n" n)
+  (time (test-zebra n)))
+
