@@ -74,9 +74,6 @@
            (define w (subst:walk w^ s))
            (cond
              [(eq? v w) s]
-             [(and (both var? v w)
-                   (subst:var=? v w))
-              s]
              [(var? v) (extend s v w)]
              [(var? w) (extend s w v)]
              [(both pair? v w)

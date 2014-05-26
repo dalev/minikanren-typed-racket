@@ -6,7 +6,7 @@
   extend
   walk
   create-variable
-  var? var=?
+  var?
   )
 
 (module+ test (require rackunit))
@@ -28,10 +28,6 @@
 ;; CR dalev: the subst wrapper is superfluous because we should have
 ;; (subst-size s) = (bral-node-weight (subst-bral s))
 (struct subst (size bral))
-
-(define (var=? v w)
-  (and (eq? (var-name v) (var-name w))
-       (eqv? (var-idx v) (var-idx w))))
 
 (define subst-empty (subst 0 (bral-empty)))
 
@@ -59,8 +55,7 @@
      (cond
        [(subst-find s v) 
         => (lambda (a)
-             ;; CR dalev: does (eq? a v) suffice here?
-             (if (and (var? a) (var=? v a))
+             (if (eq? v a)
                v
                (walk a s)))]
        [else v])]
