@@ -23,14 +23,14 @@
         (%cdr l d)
         (%list d))]))
 
-(define (%member x l)
+(define (%member l x)
   (conde
     [(%null l) fail]
     [(%car l x) succeed]
     [succeed
       (fresh (d)
         (%cdr l d)
-        (%member x d))]))
+        (%member d x))]))
 
 (define (%rember x l out)
   (conde
