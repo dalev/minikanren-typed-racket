@@ -26,14 +26,6 @@
        (any (%sexp-mem fst elt)
             (%sexp-mem snd elt)))]))
 
-(require (for-syntax racket/base syntax/parse))
-(define-syntax (trace stx)
-  (syntax-parse stx
-    [(trace (x:id ...) message)
-     #'(project (x ...)
-         (begin (printf "~a: ~a~n" message (list (list (quote x) x) ...))
-                succeed))]))
-
 (define (%find alist key value)
   (%member alist (list key value)))
 
