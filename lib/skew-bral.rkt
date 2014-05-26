@@ -25,8 +25,6 @@
 ;; Finally, a substitution is a BRAL that may contain variables
 (struct var (name idx))
 
-;; CR dalev: the subst wrapper is superfluous because we should have
-;; (subst-size s) = (bral-node-weight (subst-bral s))
 (struct subst (size bral))
 
 (define subst-empty (subst 0 (bral-empty)))
