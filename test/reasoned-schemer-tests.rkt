@@ -9,6 +9,7 @@
 
 #lang racket/base
 (require "../main.rkt"
+         racket/set
          (except-in rackunit 
                     fail
                     test-check))
@@ -17,10 +18,18 @@
 
 (define (maybe-map-car x) 
   (if (and (list? x) (andmap list? x)) (map car x) x))
+
 (define-syntax test-check
   (syntax-rules ()
     ((_ title tested-expression expected-result)
      (check-equal? (maybe-map-car tested-expression) expected-result title))))
+
+(define-syntax test-check/set
+  (syntax-rules ()
+    ((_ title tested-expression expected-result)
+     (check-equal? (list->set (map car tested-expression)) 
+                   (list->set expected-result) 
+                   title))))
 
 (define nl (string #\newline))
 
@@ -654,12 +663,6 @@
   (list `_.0))
 
 ; 3.1.1
-'(define list?
-  (lambda (l)
-    (cond
-      ((null? l) #t)
-      ((pair? l) (list? (cdr l)))
-      (else #f))))
 
 (test-check "3.1.1"
   (list? `((a) (a b) c))
@@ -680,13 +683,12 @@
 ; 3.5
 (define listo
   (lambda (l)
-    (cond:l->r
+    (conde
       ((nullo l) succeed)
       ((pairo l)
        (fresh (d)
-         (all:l->r
-           (cdro l d)
-           (listo d))))
+         (cdro l d)
+         (listo d)))
       (else fail))))
 
 (test-check "3.7"
@@ -723,16 +725,14 @@
 ; 3.17
 (define lolo
   (lambda (l)
-    (cond:l->r
+    (conde
       ((nullo l) succeed)
       ((fresh (a) 
-         (all:l->r
-           (caro l a)
-           (listo a)))
+         (caro l a)
+         (listo a))
        (fresh (d)
-         (all:l->r
-           (cdro l d)
-           (lolo d))))
+         (cdro l d)
+         (lolo d)))
       (else fail))))
 
 (test-check "3.20"
@@ -760,13 +760,11 @@
   `(()))
 
 (test-check "3.24"
-  (run 5 (x)
+  (run 10 (x)
     (lolo `((a b) (c d) . ,x)))
-  `(()
-    (())
-    (() ())
-    (() () ())
-    (() () () ())))
+  ;; changed from book; my implementation allows backtracking into [listo]
+  `(() (()) ((_.0)) (() ()) ((_.0 _.1)) (() (_.0)) ((_.0) ()) (() () ()) ((_.0 _.1 _.2)) (() (_.0 _.1)))
+  )
 
 ; 3.31
 (let ()
@@ -1323,12 +1321,6 @@
   `(b))
 
 ; 5.2.1
-'(define append
-  (lambda (l s)
-    (cond
-      ((null? l) s)
-      (else (cons (car l)
-              (append (cdr l) s))))))
 
 (test-check "5.2.2"
   (append `(a b c) `(d e))
@@ -1713,7 +1705,7 @@
     (a ())
     ((a))))
 
-(test-check "5.64"
+(test-check/set "5.64"
   (run* (x)
     (flatteno '((a)) x))
   `((a)
@@ -1724,7 +1716,7 @@
     ((a) ())
     (((a)))))
 
-(test-check "5.66"
+(test-check/set "5.66"
   (run* (x)
     (flatteno '(((a))) x))
   `((a)
@@ -1765,7 +1757,7 @@
     ((a b) (c))
     (((a b) c))))
 
-(test-check "flattenogrumble"
+(test-check/set "flattenogrumble"
   (flattenogrumblequestion)
   flattenogrumbleanswer)
 
@@ -1776,7 +1768,7 @@
 ; 5.73
 (define flattenrevo
   (lambda (s out)
-    (cond:l->r
+    (conde
       (succeed (conso s '() out))
       ((nullo s) (== '() out))
       (else
@@ -1786,7 +1778,7 @@
           (flattenrevo d res-d)
           (appendo res-a res-d out))))))
 
-(test-check "5.75"
+(test-check/set "5.75"
   (run* (x)
     (flattenrevo '((a b) c) x))
   `((((a b) c))
@@ -1803,17 +1795,17 @@
     (a b c ())
     (a b c)))
 
-(test-check "5.76"
+(test-check/set "5.76"
   (reverse
     (run* (x)
       (flattenrevo '((a b) c) x)))
   flattenogrumbleanswer)
 
 (test-check "5.77"
-  (run 2 (x)
+  (run 10 (x)
     (flattenrevo x '(a b c)))
-  `((a b . c)
-    (a b c)))
+  ;; changed from book due to different backtracking order
+  `((a b . c) ((a . b) . c) (a b c) (a b () . c) (a () b . c) (() a b . c) ((a . b) c) ((a . b) () . c) (a (b . c)) ((a) b . c)))
 
 (test-divergence "5.79"
   (run 3 (x)
@@ -1932,7 +1924,7 @@
     (== #t q))
   `(#t #t #t #t #t))
 
-(test-check "6.24"
+(test-check/set "6.24"
   (run 5 (r)
     (condi
       ((teacupo r) succeed)
@@ -2323,7 +2315,7 @@
                 (() (_.0 . _.1) (_.0 . _.1))
                 ((1) (1) (0 1))))
 
-  (test-check "7.101"
+  (test-check/set "7.101"
               (run 22 (s)
                 (fresh (x y r)
                   (addero 0 x y r)
@@ -2708,7 +2700,7 @@
         ((<lo n m) succeed)
         (else fail))))
 
-  (test-check "8.43"
+  (test-check/set "8.43"
               (run 10 (t)
                 (fresh (n m)
                   (<=lo n m)
@@ -2789,7 +2781,7 @@
                 (== #t q))
               `(#t))
 
-  (test-check "8.50"
+  (test-check/set "8.50"
               (run 6 (n)
                 (<o n `(1 0 1)))
               `(() (0 0 1) (1) (_.0 1)))
@@ -3065,9 +3057,7 @@
                 (logo '(0 1 1 1) '(0 1) '(1 1) r))
               (list `(0 1 1)))
 
-  (displayln "This next test takes several minutes to run!")
-
-  (test-check "8.96"
+  (test-check/set "8.96"
               (run 8 (s)
                 (fresh (b q r)
                   (logo '(0 0 1 0 0 0 1) b q r)
@@ -3486,7 +3476,7 @@
         (gen&testo op i j k)
         (== `(,i ,j ,k) r))))
 
-  (test-check "10.43.2"
+  (test-check/set "10.43.2"
               (run* (s)
                 (enumerateo +o s '(1 1)))
               `(((1 1) (1 1) (0 1 1))
