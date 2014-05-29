@@ -11,7 +11,7 @@
 (provide
   == ==-check 
   conde
-  all all:left->right
+  all all:l->r
   any
   fail succeed
   fresh run run* in-solutions
@@ -349,7 +349,7 @@
     [(_ g) #'g]
     [(_ g0 g ...) #'(lambda (s) (bind* (g0 s) g ...))]))
 
-(define-syntax (all:left->right stx)
+(define-syntax (all:l->r stx)
   (syntax-parse stx
     [(_) #'succeed]
     [(_ g) #'g]
@@ -375,20 +375,20 @@
       (all (== x 42) (%repeat succeed)))
     (map list (for/list ([i (in-range 0 n)]) 42)))
   
-  ;; [all:left->right] does not get stuck
+  ;; [all:l->r] does not get stuck
   (check-equal?
     (run 10 (x)
-      (all:left->right (%repeat succeed)
+      (all:l->r (%repeat succeed)
                        (== x 42)))
     (map list (for/list ([i (in-range 0 n)]) 42)))
 
   (check-equal?
-    (run 10 (x) (all:left->right (== x 42) (%repeat succeed)))
+    (run 10 (x) (all:l->r (== x 42) (%repeat succeed)))
     (map list (for/list ([i (in-range 0 n)]) 42)))
 )
 
 (module+ test
-  ;; [all] and [all:left->right] produce answers in different order
+  ;; [all] and [all:l->r] produce answers in different order
   (check-equal?
     (run* (x y)
       (all (any (== x 1) (== x 2))
@@ -399,7 +399,7 @@
 
   (check-equal?
     (run* (x y)
-      (all:left->right (any (== x 1) (== x 2))
+      (all:l->r (any (== x 1) (== x 2))
                        (any (== y 3) fail (== y 4) (== y 5))))
     (list '(1 3) '(1 4) '(1 5) 
           '(2 3) '(2 4) '(2 5)))

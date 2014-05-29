@@ -237,21 +237,21 @@
 
 (test-check "1.44"
   (run* (q)
-    (conde 
+    (cond:l->r 
       (fail succeed) 
       (else fail)))
   '())
 
 (test-check "1.45"
   (not (null? (run* (q)
-                (conde
+                (cond:l->r
                   (fail fail)
                   (else succeed)))))
   #t)
 
 (test-check "1.46"
   (not (null? (run* (q)
-                (conde
+                (cond:l->r
                   (succeed succeed)
                   (else fail)))))
   #t)
@@ -259,7 +259,7 @@
 
 (test-check "1.47"
   (run* (x)
-    (conde
+    (cond:l->r
       ((== 'olive x) succeed)
       ((== 'oil x) succeed)
       (else fail)))
@@ -267,7 +267,7 @@
 
 (test-check "1.49"
   (run 1 (x)
-    (conde
+    (cond:l->r
       ((== 'olive x) succeed)
       ((== 'oil x) succeed)
       (else fail)))
@@ -275,7 +275,7 @@
 
 (test-check "1.50.1"
   (run* (x)
-    (conde
+    (cond:l->r
       ((== 'virgin x) fail)
       ((== 'olive x) succeed)
       (succeed succeed)
@@ -285,7 +285,7 @@
 
 (test-check "1.50.2"
   (run* (x)
-    (conde
+    (cond:l->r
       ((== 'olive x) succeed)
       (succeed succeed)
       ((== 'oil x) succeed)
@@ -294,7 +294,7 @@
 
 (test-check "1.52"
   (run 2 (x)
-    (conde
+    (cond:l->r
       ((== 'extra x) succeed)
       ((== 'virgin x) fail)
       ((== 'olive x) succeed)
@@ -313,7 +313,7 @@
 (test-check "1.54"
   (run* (r)
     (fresh (x y)
-      (conde
+      (cond:l->r
         ((== 'split x) (== 'pea y))
         ((== 'navy x) (== 'bean y))
         (else fail))
@@ -323,7 +323,7 @@
 (test-check "1.55"
   (run* (r)
     (fresh (x y)
-      (conde
+      (cond:l->r
         ((== 'split x) (== 'pea y))
         ((== 'navy x) (== 'bean y))
         (else fail))
@@ -333,7 +333,7 @@
 ; 1.56
 (define teacupo
   (lambda (x)
-    (conde
+    (cond:l->r
       ((== 'tea x) succeed)
       ((== 'cup x) succeed)
       (else fail))))
@@ -356,7 +356,7 @@
 (test-check "1.58"
   (run* (r)
     (fresh (x y z)
-      (conde
+      (cond:l->r
         ((== y x) (fresh (x) (== z x)))
         ((fresh (x) (== y x)) (== z x))
         (else fail))
@@ -366,7 +366,7 @@
 (test-check "1.59"
   (run* (r)
     (fresh (x y z)
-      (conde
+      (cond:l->r
 	((== y x) (fresh (x) (== z x)))
 	((fresh (x) (== y x)) (== z x))
 	(else fail))
@@ -387,7 +387,7 @@
           (b (fresh (x)
                (== x q)
                (== #f x)))
-          (c (conde
+          (c (cond:l->r
                ((== #t q) succeed)
                (else (== #f q)))))
       b))
@@ -680,12 +680,13 @@
 ; 3.5
 (define listo
   (lambda (l)
-    (conde
+    (cond:l->r
       ((nullo l) succeed)
       ((pairo l)
        (fresh (d)
-         (cdro l d)
-         (listo d)))
+         (all:l->r
+           (cdro l d)
+           (listo d))))
       (else fail))))
 
 (test-check "3.7"
@@ -725,11 +726,13 @@
     (cond:l->r
       ((nullo l) succeed)
       ((fresh (a) 
-         (caro l a)
-         (listo a))
+         (all:l->r
+           (caro l a)
+           (listo a)))
        (fresh (d)
-         (cdro l d)
-         (lolo d)))
+         (all:l->r
+           (cdro l d)
+           (lolo d))))
       (else fail))))
 
 (test-check "3.20"
@@ -794,7 +797,7 @@
 (let ()
   (define loto
     (lambda (l)
-      (conde
+      (cond:l->r
         ((nullo l) succeed)
         ((fresh (a)
            (caro l a)
@@ -842,7 +845,7 @@
 ; 3.48
 (define listofo
   (lambda (predo l)
-    (conde
+    (cond:l->r
       ((nullo l) succeed)
       ((fresh (a)
          (caro l a)
@@ -892,7 +895,7 @@
 ; 3.54.2
 (define membero
   (lambda (x l)
-    (conde
+    (cond:l->r
       ((nullo l) fail)
       ((eq-caro l x) succeed)
       (else
@@ -981,7 +984,7 @@
 (let ()
   (define pmembero
     (lambda (x l)
-      (conde
+      (cond:l->r
         ((nullo l) fail)
         ((eq-caro l x) (cdro l '()))
         (else
@@ -1008,7 +1011,7 @@
 (let ()
   (define pmembero
     (lambda (x l)
-      (conde
+      (cond:l->r
         ((nullo l) fail)
         ((eq-caro l x) (cdro l '()))
         ((eq-caro l x) succeed)
@@ -1027,7 +1030,7 @@
 (let ()
   (define pmembero
     (lambda (x l)
-      (conde
+      (cond:l->r
         ((nullo l) fail)
         ((eq-caro l x) (cdro l '()))
         ((eq-caro l x) 
@@ -1063,7 +1066,7 @@
 ; 3.93
 (define pmembero
   (lambda (x l)
-    (conde
+    (cond:l->r
       ((eq-caro l x) 
        (fresh (a d)
          (cdro l `(,a . ,d))))
@@ -1106,7 +1109,7 @@
 ; 3.98
 (define memberrevo
   (lambda (x l)
-    (conde
+    (cond:l->r
       ((nullo l) fail)
       (succeed
         (fresh (d)
@@ -1131,7 +1134,7 @@
 (let ()
   (define memo
     (lambda (x l out)
-      (conde
+      (cond:l->r
         ((nullo l) fail)
         ((eq-caro l x) (== l out))
         (else 
@@ -1203,7 +1206,7 @@
 ; 4.21
 (define memo
   (lambda (x l out)
-    (conde
+    (cond:l->r
       ((eq-caro l x) (== l out))
       (else 
         (fresh (d)
@@ -1228,7 +1231,7 @@
 #;
 (define rembero
   (lambda (x l out)
-    (conde
+    (cond:l->r
       ((nullo l) (== '() out))
       ((eq-caro l x) (cdro l out))
       (else
@@ -1243,7 +1246,7 @@
 ; 4.27
 (define rembero  
   (lambda (x l out)
-    (conde
+    (cond:l->r
       ((nullo l) (== '() out))
       ((eq-caro l x) (cdro l out))
       (else (fresh (a d res)
@@ -1347,7 +1350,7 @@
 (let ()
   (define appendo
     (lambda (l s out)
-      (conde
+      (cond:l->r
         ((nullo l) (== s out))
         (else 
           (fresh (a d res)
@@ -1406,7 +1409,7 @@
 (let ()
   (define appendo
     (lambda (l s out)
-      (conde
+      (cond:l->r
         ((nullo l) (== s out))
         (else 
           (fresh (a d res)
@@ -1506,7 +1509,7 @@
 ; 5.31
 (define appendo
   (lambda (l s out)
-    (conde
+    (cond:l->r
       ((nullo l) (== s out))
       (else 
         (fresh (a d res)
@@ -1573,7 +1576,7 @@
 ; 5.38
 (define swappendo
   (lambda (l s out)
-    (conde
+    (cond:l->r
       (succeed
         (fresh (a d res)
           (conso a d l)
@@ -1605,7 +1608,7 @@
 (let ()
   (define unwrapo
     (lambda (x out)
-      (conde
+      (cond:l->r
         ((pairo x)
          (fresh (a)
            (caro x a)
@@ -1631,7 +1634,7 @@
 ; 5.52
 (define unwrapo
   (lambda (x out)
-    (conde
+    (cond:l->r
       (succeed (== x out))
       (else 
         (fresh (a)
@@ -1683,7 +1686,7 @@
 ; 5.59
 (define flatteno
   (lambda (s out)
-    (conde
+    (cond:l->r
       ((nullo s) (== '() out))
       ((pairo s)
        (fresh (a d res-a res-d)
@@ -1773,7 +1776,7 @@
 ; 5.73
 (define flattenrevo
   (lambda (s out)
-    (conde
+    (cond:l->r
       (succeed (conso s '() out))
       ((nullo s) (== '() out))
       (else
@@ -1825,7 +1828,7 @@
 ; 6.1
 (define anyo
   (lambda (g)
-    (conde
+    (cond:l->r
       (g succeed)
       (else (anyo g)))))
 
@@ -1866,7 +1869,7 @@
 ; 6.12
 (define salo
   (lambda (g)
-    (conde
+    (cond:l->r
       (succeed succeed)
       (else g))))
 
@@ -1901,7 +1904,7 @@
 
 (test-divergence "6.18"
   (run 1 (q)                                                                  
-    (conde                                                                  
+    (cond:l->r                                                                  
       ((== #f q) alwayso)                                             
       (else (anyo (== #t q))))                                             
     (== #t q)))
@@ -1948,7 +1951,7 @@
 
 (test-divergence "6.27"
   (run 5 (q)
-    (conde
+    (cond:l->r
       ((== #f q) alwayso)
       ((== #t q) alwayso)
       (else fail))
@@ -1956,7 +1959,7 @@
 
 (test-check "6.28"
   (run 5 (q)                                                                  
-    (conde                                                                     
+    (cond:l->r                                                                     
       (alwayso succeed)
       (else nevero))
     (== #t q))
@@ -1972,7 +1975,7 @@
 (test-divergence "6.31"
   (run 1 (q)                                                                  
     (all
-      (conde
+      (cond:l->r
         ((== #f q) succeed)
         (else (== #t q)))                    
       alwayso)
@@ -1981,7 +1984,7 @@
 (test-check "6.32"
   (run 1 (q)                                                                  
     (alli
-      (conde
+      (cond:l->r
         ((== #f q) succeed)
         (else (== #t q)))                    
       alwayso)                                                        
@@ -1991,7 +1994,7 @@
 (test-check "6.33"
   (run 5 (q)
     (alli
-      (conde
+      (cond:l->r
         ((== #f q) succeed)
         (else (== #t q)))                    
       alwayso)                                                        
@@ -2001,7 +2004,7 @@
 (test-check "6.34"
   (run 5 (q)
     (alli
-      (conde
+      (cond:l->r
         ((== #t q) succeed)
         (else (== #f q)))
       alwayso)                                           
@@ -2011,7 +2014,7 @@
 (test-check "6.36"
   (run 5 (q)
     (all
-      (conde
+      (cond:l->r
         (succeed succeed)
         (else nevero))
       alwayso)
@@ -2021,7 +2024,7 @@
 (test-divergence "6.38"
   (run 5 (q)
     (alli
-      (conde
+      (cond:l->r
         (succeed succeed)
         (else nevero))
       alwayso)
@@ -2030,7 +2033,7 @@
 ; 7.5
 (define bit-xoro
   (lambda (x y r)
-    (conde
+    (cond:l->r
       ((== 0 x) (== 0 y) (== 0 r))
       ((== 1 x) (== 0 y) (== 1 r))
       ((== 0 x) (== 1 y) (== 1 r))
@@ -2066,7 +2069,7 @@
 ; 7.10
 (define bit-ando
   (lambda (x y r)
-    (conde
+    (cond:l->r
       ((== 0 x) (== 0 y) (== 0 r))
       ((== 1 x) (== 0 y) (== 0 r))
       ((== 0 x) (== 1 y) (== 0 r))
@@ -2121,7 +2124,7 @@
 ; 7.15.3
 (define full-addero
   (lambda (b x y r c)
-    (conde
+    (cond:l->r
       ((== 0 b) (== 0 x) (== 0 y) (== 0 r) (== 0 c))
       ((== 1 b) (== 0 x) (== 0 y) (== 1 r) (== 0 c))
       ((== 0 b) (== 1 x) (== 0 y) (== 1 r) (== 0 c))
@@ -2408,7 +2411,7 @@
       ;; duplicated from below
       (define bound-*o
         (lambda (q p n m)
-          (conde
+          (cond:l->r
             ((nullo q) (pairo p))
             (else
               (fresh (x y z)
@@ -2453,7 +2456,7 @@
   (let ()
     (define bound-*o
       (lambda (q p n m)
-        (conde
+        (cond:l->r
           ((nullo q) (pairo p))
           (else
             (fresh (x y z)
@@ -2534,7 +2537,7 @@
   ; 8.22
   (define bound-*o
     (lambda (q p n m)
-      (conde
+      (cond:l->r
         ((nullo q) (pairo p))
         (else
           (fresh (x y z)
@@ -2563,7 +2566,7 @@
   ; 8.26
   (define =lo
     (lambda (n m)
-      (conde
+      (cond:l->r
         ((== '() n) (== '() m))
         ((== '(1) n) (== '(1) m))
         (else
@@ -2625,7 +2628,7 @@
   ; 8.34
   (define <lo
     (lambda (n m)
-      (conde
+      (cond:l->r
         ((== '() n) (poso m))
         ((== '(1) n) (>1o m))
         (else
@@ -2656,7 +2659,7 @@
   (let ()
     (define <=lo
       (lambda (n m)
-        (conde
+        (cond:l->r
           ((=lo n m) succeed)
           ((<lo n m) succeed)
           (else fail))))
@@ -2816,7 +2819,7 @@
                 (alli
                   (splito n r nl nh)
                   (splito q r ql qh)
-                  (conde
+                  (cond:l->r
                     ((== '() nh)
                      (== '() qh)
                      (-o nl r qlm)
@@ -2920,7 +2923,7 @@
               (alli
                 (splito n r nl nh)
                 (splito q r ql qh)
-                (conde
+                (cond:l->r
                   ((== '() nh)
                    (== '() qh)
                    (-o nl r qlm)
@@ -2984,7 +2987,7 @@
            (fresh (s)
              (splito n dd r s))))
         ((fresh (a ad add ddd)
-           (conde
+           (cond:l->r
              ((== '(1 1) b))
              (else (== `(,a ,ad ,add . ,ddd) b))))
          (<lo b n)
@@ -3000,7 +3003,7 @@
            (+o nw1 '(1) nw)
            (/o nw bw ql1 s)
            (+o ql '(1) ql1)
-           (conde
+           (cond:l->r
              ((== q ql))
              (else (<lo ql q)))
            (fresh (bql qh s qdh qd)
@@ -3008,7 +3011,7 @@
              (/o nw bw1 qh s)                
              (+o ql qdh qh)
              (+o ql qd q)
-             (conde
+             (cond:l->r
                ((== qd qdh))
                (else (<o qd qdh)))
              (fresh (bqd bq1 bq)
@@ -3047,7 +3050,7 @@
   ; 8.82.3
   (define repeated-mul
     (lambda (n q nq)
-      (conde
+      (cond:l->r
         ((poso n) (== '() q) (== '(1) nq))
         ((== '(1) q) (== n nq))
         ((>1o q)
@@ -3399,7 +3402,7 @@
 
   (test-check "10.21"
               (run* (r)
-                (conde
+                (cond:l->r
                   ((teacupo r) succeed)
                   ((== #f r) succeed)
                   (else fail)))
@@ -3434,7 +3437,7 @@
   ; 10.26.1
   (define bumpo
     (lambda (n x)
-      (conde
+      (cond:l->r
         ((== n x) succeed)
         (else
           (fresh (m)
