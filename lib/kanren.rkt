@@ -21,6 +21,10 @@
   once!
   ifa conda
   ifu condu
+
+  ;; for Reasoned Schemer tests
+  condi alli
+  cond:l->r
   )
 
 (module+ test (require (except-in rackunit fail)))
@@ -402,13 +406,34 @@
   )
 
 (define-syntax (conde stx)
-  (syntax-parse stx
-    [(_ (g0 g ...) (g1 g^ ...) ...)
+  (syntax-parse stx #:literals (else)
+    [(_ (g:expr ...+) ... (else g-final:expr ...+))
+     #'(conde (g ...) ... (succeed g-final ...))]
+    [(_ (g0:expr g:expr ...) ...+)
      #'(lambda (s)
          (thunk 
            (mplus* (bind* (g0 s) g ...)
-                   (bind* (g1 s) g^ ...)
                    ...)))]))
+
+(define-syntax (cond:l->r stx)
+  (syntax-parse stx #:literals (else)
+    [(_ (g:expr ...+) ... (else g-final:expr ...+))
+     #'(cond:l->r (g ...) ... (succeed g-final ...))]
+    [(_ (g0:expr g:expr ...) ...+)
+     #'(lambda (s)
+         (thunk 
+           (mappend* (thunk (bind-in-order* (g0 s) g ...))
+                     ...)))]))
+
+;; CR dalev: ...
+(define-syntax (condi stx)
+  (syntax-parse stx
+    [(_ clause ...+) #'(conde clause ...)]))
+
+;; CR dalev: ...
+(define-syntax (alli stx)
+  (syntax-parse stx
+    [(_ goal:expr ...) #'(all goal ...)]))
 
 (define-syntax (any stx)
   (syntax-parse stx
@@ -459,7 +484,8 @@ if g0 fails, then throw away g1 and solve with g2
     (list '(2) '(4))))
 
 (define-syntax (conda stx)
-  (syntax-parse stx 
+  (syntax-parse stx #:literals (else)
+    [(_ (else g-final)) #'g-final]
     [(_ (g0 g ...)) #'(all g0 g ...)]
     [(_ (g0 g ...) (g1 g^ ...) ...)
      #'(ifa g0 
@@ -480,10 +506,12 @@ if g0 fails, then throw away g1 and solve with g2
   (ifa (once! g0) g1 g2))
 
 (define-syntax (condu stx)
-  (syntax-parse stx
-    [(_ (g0 g ...))
+  (syntax-parse stx #:literals (else)
+    [(_ (else g:expr ...+))
+     #'(all g ...)]
+    [(_ (g0:expr g:expr ...))
      #'(ifu g0 (all g ...) fail)]
-    [(_ (g0 g ...) (g1 g^ ...) ...)
+    [(_ (g0:expr g:expr ...) (g1:expr g^:expr ...) ...)
      #'(ifu g0 
             (all g ...)
             (condu (g1 g^ ...) ...))]))
