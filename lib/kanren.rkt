@@ -332,16 +332,14 @@
 
 (define (== v w)
   (lambda (s)
-    (or (unify s #:occurs-check? #f v w)
-        mzero)))
+    (unify s #:occurs-check? #f v w)))
 
 (define succeed (== #t #t))
 (define fail (== #t #f))
 
 (define (==-check v w)
   (lambda (s)
-    (or (unify s #:occurs-check? #t v w)
-        mzero)))
+    (unify s #:occurs-check? #t v w)))
 
 (define-syntax (all stx)
   (syntax-parse stx
@@ -379,7 +377,7 @@
   (check-equal?
     (run 10 (x)
       (all:l->r (%repeat succeed)
-                       (== x 42)))
+                (== x 42)))
     (map list (for/list ([i (in-range 0 n)]) 42)))
 
   (check-equal?
