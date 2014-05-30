@@ -290,8 +290,8 @@
     [empty mzero]
     [(singleton a) (g a)]
     [(choice a f)
-     (mappend (g a) (thunk (bind (f) g)))]
-    [(incomplete f) (thunk (bind (f) g))]))
+     (mappend (g a) (thunk (bind-in-order (f) g)))]
+    [(incomplete f) (thunk (bind-in-order (f) g))]))
 
 (define (mappend stream f)
   (stream-case stream
