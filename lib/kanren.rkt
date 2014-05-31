@@ -9,7 +9,7 @@
   (for-syntax racket/base
               syntax/parse))
 (provide
-  == ==-check 
+  == ==-check =/=
   conde
   all all:l->r
   any
@@ -22,6 +22,9 @@
   ifa conda
   ifu condu
 
+  ;; experimental
+  any:l->r
+
   ;; for Reasoned Schemer tests
   condi alli
   cond:l->r
@@ -31,6 +34,7 @@
 
 ;; A substitution is just a sbral that may contain logic variables
 (struct var (name index))
+(define (var=? v w) (= (var-index v) (var-index w)))
 
 (define subst:empty sbral-empty)
 (define (subst:size subst) (sbral-size subst))
@@ -42,20 +46,19 @@
 (define (subst:extend subst variable value)
   (sbral-set subst (var-index variable) value))
 
+(struct context (substitution constraints))
+(define context:empty (context subst:empty '()))
+
 ;; Transitive closure of [sbral-ref] by chasing variable chains to the end
 (define (subst:walk v sbral)
   (if (var? v)
     (match (sbral-ref sbral (var-index v)) 
       [#f #f]
       [answer
-        (if (eq? v answer)
-          v
-          (subst:walk answer sbral))])
+        (cond [(eq? v answer) v]
+              [(and (var? answer) (var=? v answer)) v]
+              [else (subst:walk answer sbral)])])
     v))
-
-(define-syntax lambdag@
-  (syntax-rules ()
-    ((_ (s) e) (lambda (s) e))))
 
 (define (both is? a b) (and (is? a) (is? b)))
 
@@ -98,6 +101,7 @@
            (define w (subst:walk w^ s))
            (cond
              [(eq? v w) s]
+             [(and (both var? v w) (var=? v w)) s]
              [(var? v) (extend s v w)]
              [(var? w) (extend s w v)]
              [(both pair? v w)
@@ -165,6 +169,7 @@
     (string->symbol
       (string-append "_" "." (number->string n)))))
 
+;; CR dalev: reify needs to say something about constraints
 (define (reify v s)
   (define table (make-hasheq))
   (define count -1)
@@ -195,9 +200,10 @@
      #:fail-when (check-duplicate-identifier
                    (syntax->list #'(x ...)))
                    "duplicate variable name"
-     #'(lambdag@ (s)
-                 (let ([x (walk* x s)] ...)
-                   (bind* (goal s) g ...)))]))
+     #'(lambda (ctx)
+         (define s (context-substitution ctx))
+         (let ([x (walk* x s)] ...)
+           (bind* (goal ctx) g ...)))]))
 
 (define-syntax (fresh stx)
   (syntax-parse stx
@@ -205,9 +211,11 @@
      #:fail-when (check-duplicate-identifier
                    (syntax->list #'(x ...)))
                    "duplicate variable name"
-      #'(lambda (s)
+      #'(lambda (ctx)
+          (define s (context-substitution ctx))
            (let*-values ([(x s) (subst:create-variable 'x s)] ...)
-             (bind* (goal s) g ...)))]))
+             (define ctx^ (context s (context-constraints ctx)))
+             (bind* (goal ctx^) g ...)))]))
 
 (define-syntax (stream-case stx)
   (syntax-parse stx
@@ -237,8 +245,11 @@
     [(_ (x:id) goal ...+)
      #'(in-generator
          (let loop ([s (thunk
-                         ((fresh (x) goal ... (lambda (a) (reify x a)))
-                          subst:empty))])
+                         ((fresh (x) 
+                            goal ... 
+                            (lambda (ctx) 
+                              (reify x (context-substitution ctx))))
+                          context:empty))])
            (stream-case (s)
               [empty '()]
               [(singleton a) (yield a)]
@@ -250,8 +261,11 @@
     [(_ n (x:id ...) goal:expr ...+)
      #'(take n
              (thunk
-               ((fresh (x ...) goal ... (lambda (a) (list (reify x a) ...)))
-                subst:empty)))]))
+               ((fresh (x ...) 
+                  goal ... 
+                  (lambda (ctx) (list (reify x (context-substitution ctx)) 
+                                      ...)))
+                context:empty)))]))
 
 (define-syntax (run* stx)
   (syntax-parse stx
@@ -331,27 +345,163 @@
      #'(mplus e0 (thunk (mplus* e ...)))]))
 
 (define (== v w)
-  (lambda (s)
-    (unify s #:occurs-check? #f v w)))
+  (lambda (ctx)
+    (match (unify (context-substitution ctx) #:occurs-check? #f v w)
+      [#f #f]
+      [subst (context subst (context-constraints ctx))])))
 
 (define succeed (== #t #t))
 (define fail (== #t #f))
 
 (define (==-check v w)
-  (lambda (s)
-    (unify s #:occurs-check? #t v w)))
+  (lambda (ctx)
+    (match (unify (context-substitution ctx) #:occurs-check? #t v w)
+      [#f #f]
+      [subst (context subst (context-constraints ctx))])))
+
+(struct equations (lhss rhss))
+(define (equations-empty? d) (null? (equations-lhss d)))
+
+;; CR dalev: hack the unifier to accumulate the diff instead
+(define (subst-diff s t)
+  ;; in practice, we are only interested in diffs where s results from
+  ;; unifying some terms using t -- it cannot shrink.
+  (unless (>= (subst:size s) (subst:size t))
+    (error 'subst-diff "expected bigger substitution on the left: ~a ~a"
+           (subst:size s) (subst:size t)))
+  (define-values {lhss rhss}
+    (for/fold ([lhss '()] [rhss '()]) ([i (in-range (subst:size s))])
+      (define s@i (sbral-ref s i))
+      (if (>= i (subst:size t))
+        (values (cons (var 'dummy i) lhss)
+                (cons s@i rhss))
+        (let ([t@i (sbral-ref t i)])
+          (if (equal? s@i t@i)
+            (values lhss rhss)
+            (values (cons (var 'dummy i) lhss)
+                    (cons s@i)))))))
+  (equations lhss rhss))
+
+;; Produce a goal 
+(define (=/= u v)
+  (lambda (ctx) (constrain-=/= ctx u v)))
+
+(module+ test
+
+  (define (%rember/broken xs target out)
+    (conde 
+      [(== xs '()) (== '() out)]
+      [else
+        (fresh (first-xs rest-xs res)
+          (== (cons first-xs rest-xs) xs)
+          (%rember/broken rest-xs target res)
+          (conde
+            [(== target first-xs) (== res out)]
+            [else (== (cons first-xs res) out)]))]))
+
+  (check-equal?
+    (run* (q) (%rember/broken '(a b a c) 'a q))
+    (map list '((b c) (b a c) (a b c) (a b a c))))
+
+  (define (%rember xs target out)
+    (conde 
+      [(== xs '()) (== '() out)]
+      [else
+        (fresh (first-xs rest-xs res)
+          (== xs (cons first-xs rest-xs))
+          (conde
+            [(== target first-xs)
+             (%rember rest-xs target out)]
+            [(=/= target first-xs)
+             (%rember rest-xs target res)
+             (== (cons first-xs res) out)]))]))
+
+  (check-equal?
+    (run* (q) (%rember '(a b a c) 'a q))
+    (map list '((b c))))
+  )
+
+
+
+;; Add constraints to [ctx] that ensure [u] and [v] cannot unify
+(define (constrain-=/= ctx u v)
+  (define s (context-substitution ctx))
+  (match (unify s #:occurs-check? #f u v)
+    [#f ctx] ;; u and v do not unify -- success
+    [s^ (=/=-goal ctx (subst-diff s^ s))]))
+
+(define (=/=-goal ctx eqns)
+  (match-define (context s c) ctx)
+  (match-define (equations lhss rhss) eqns)
+  (match (unify s #:occurs-check? #f lhss rhss)
+    [#f ctx]
+    [s^
+      (let ([equations^ (subst-diff s^ s)])
+        (if (equations-empty? equations^)
+          #f
+          (normalize-store equations^ ctx)))]))
+
+(define (build/oc constraint->goal equations)
+  (disunify-constraint (constraint->goal equations) equations))
+
+(struct disunify-constraint (goal equations))
+
+(define (equations->substitution eqns)
+  (match-define (equations lhss rhss) eqns)
+  ;; CR dalev: O(largest-index) is sad
+  (define subst-with-unbound-variables
+    (match lhss
+      [(cons (var _ largest-index) _)
+       (for/fold ([subst subst:empty]) ([i (in-range (+ 1 largest-index))])
+         (let-values ([{_ subst} (subst:create-variable 'dummy subst)])
+           subst))]
+      ['() subst:empty]))
+  (unify subst-with-unbound-variables #:occurs-check? #f lhss rhss))
+
+;; Produce #t when [eqns^] add no information to [eqns]
+(define (subsumes? eqns^ eqns)
+  (match-define (equations lhss^ rhss^) eqns^)
+  (match (equations->substitution eqns)
+    [#f (error 'subsumes? "cannot turn into subst: ~a" eqns)]
+    [subst
+      (match (unify subst #:occurs-check? #f lhss^ rhss^)
+        [#f #f]
+        [subst^ (eq? subst subst^)])]))
+         
+(define (normalize-store equations ctx)
+  (match-define (context s constraints) ctx)
+  (let loop ([constraints constraints]
+             [new-constraints '()])
+    (match constraints
+      ['()
+       (context s (cons (disunify-constraint 
+                          ;; CR dalev: closure not necessary
+                          (lambda (ctx)
+                            (=/=-goal ctx equations))
+                          equations)
+                        new-constraints))]
+      [(cons c rest-constraints)
+       (define c-equations (disunify-constraint-equations c))
+       (cond [(subsumes? c-equations equations) 
+              ctx]
+             [(subsumes? equations c-equations)
+              ;; we do not need c anymore
+              (loop rest-constraints
+                    new-constraints)]
+              [else (loop rest-constraints
+                          (cons c new-constraints))])])))
 
 (define-syntax (all stx)
   (syntax-parse stx
     [(_) #'succeed]
     [(_ g) #'g]
-    [(_ g0 g ...) #'(lambda (s) (bind* (g0 s) g ...))]))
+    [(_ g0 g ...) #'(lambda (c) (bind* (g0 c) g ...))]))
 
 (define-syntax (all:l->r stx)
   (syntax-parse stx
     [(_) #'succeed]
     [(_ g) #'g]
-    [(_ g0 g ...) #'(lambda (s) (bind-in-order* (g0 s) g ...))]))
+    [(_ g0 g ...) #'(lambda (c) (bind-in-order* (g0 c) g ...))]))
 
 (module+ test
   (define (%repeat goal)
@@ -408,10 +558,21 @@
     [(_ (g:expr ...+) ... (else g-final:expr ...+))
      #'(conde (g ...) ... (succeed g-final ...))]
     [(_ (g0:expr g:expr ...) ...+)
-     #'(lambda (s)
+     #'(lambda (ctx)
          (thunk 
-           (mplus* (bind* (g0 s) g ...)
-                   ...)))]))
+           (mplus* (bind* (g0 ctx) g ...)
+                   ...)
+           )
+         )]))
+
+(define-syntax (condi stx)
+  (syntax-parse stx #:literals (else)
+    [(_ (g:expr ...+) ... (else g-final:expr ...+))
+     #'(condi (g ...) ... (succeed g-final ...))]
+    [(_ (g0:expr g:expr ...) ...+)
+     #'(lambda (ctx)
+         (mplus* (bind* (g0 ctx) g ...)
+                 ...))]))
 
 (define-syntax (cond:l->r stx)
   (syntax-parse stx #:literals (else)
@@ -422,11 +583,6 @@
          (thunk 
            (mappend* (thunk (bind-in-order* (g0 s) g ...))
                      ...)))]))
-
-;; CR dalev: ...
-(define-syntax (condi stx)
-  (syntax-parse stx
-    [(_ clause ...+) #'(conde clause ...)]))
 
 ;; CR dalev: ...
 (define-syntax (alli stx)
@@ -440,7 +596,7 @@
          (mplus* (g1 s) (g2 s) ...))]))
 
 ;; CR dalev: think about this harder...
-(define-syntax (any:left->right stx)
+(define-syntax (any:l->r stx)
   (syntax-parse stx
     [(_ g1 g2 ...)
      #'(lambda (s)
@@ -491,11 +647,11 @@ if g0 fails, then throw away g1 and solve with g2
             (conda (g1 g^ ...) ...))]))
 
 (define (once! g)
-  (lambda (s)
-    (let loop ([solutions (g s)])
+  (lambda (c)
+    (let loop ([solutions (g c)])
       (stream-case solutions
         [empty mzero]
-        [(singleton s) s]
+        [(singleton c) c]
         [(choice a _) a]
         [(incomplete f)
          (thunk (loop (f)))]))))

@@ -32,16 +32,6 @@
         (%cdr l d)
         (%member d x))]))
 
-(define (%rember x l out)
-  (conde
-    [(%null l) (%null out)]
-    [(%car l x) (%cdr l out)]
-    [succeed 
-      (fresh (a d res)
-        (%cons l a d)
-        (%cons out a res)
-        (%rember x d res))]))
-
 (define (%append l s out)
   (conde
     [(%null l) (== s out)]
