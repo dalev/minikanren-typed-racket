@@ -346,9 +346,37 @@
 
 (define (== v w)
   (lambda (ctx)
-    (match (unify (context-substitution ctx) #:occurs-check? #f v w)
+    (match-define (context subst constraints) ctx)
+    (match (unify subst #:occurs-check? #f v w)
       [#f #f]
-      [subst (context subst (context-constraints ctx))])))
+      [subst*
+        (if (eq? subst subst*)
+          ctx
+          (let ([d (subst-diff subst* subst)])
+            (process-new-equations d (context subst* constraints))))])))
+
+(define (recover-vars eqns)
+  ;; CR dalev: .. 
+  (equations-lhss eqns)) 
+
+(define (process-new-equations eqns ctx)
+  (run-constraints (recover-vars eqns) ctx))
+
+(define (run-constraints variables ctx)
+  (define constraints (context-constraints ctx))
+  ;; CR dalev: ...
+  (define (intersection a b) #t)
+  (let loop ([constraints constraints]
+             [ctx ctx])
+    (match constraints
+      ['() ctx]
+      [(cons (disunify-constraint goal eqns) rest-cs)
+       (if (intersection variables (equations-lhss eqns))
+         ;; CR dalev: GC exhausted constraints
+         (bind (goal ctx)
+               (lambda (ctx^)
+                 (loop rest-cs ctx^)))
+         (loop rest-cs ctx))])))
 
 (define succeed (== #t #t))
 (define fail (== #t #f))
@@ -379,7 +407,7 @@
           (if (equal? s@i t@i)
             (values lhss rhss)
             (values (cons (var 'dummy i) lhss)
-                    (cons s@i)))))))
+                    (cons s@i rhss)))))))
   (equations lhss rhss))
 
 ;; Produce a goal 
@@ -440,9 +468,6 @@
         (if (equations-empty? equations^)
           #f
           (normalize-store equations^ ctx)))]))
-
-(define (build/oc constraint->goal equations)
-  (disunify-constraint (constraint->goal equations) equations))
 
 (struct disunify-constraint (goal equations))
 
