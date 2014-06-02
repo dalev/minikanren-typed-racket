@@ -46,6 +46,7 @@
 (define (subst:extend subst variable value)
   (sbral-set subst (var-index variable) value))
 
+;; CR dalev: unbox the constraint structure?
 (struct context (substitution constraints))
 (define context:empty (context subst:empty '()))
 
@@ -353,27 +354,22 @@
         (if (eq? subst subst*)
           ctx
           (let ([d (subst-diff subst* subst)])
-            (process-new-equations d (context subst* constraints))))])))
+            (constrain-new-equations d (context subst* constraints))))])))
 
-(define (recover-vars eqns)
-  ;; CR dalev: .. 
-  (equations-lhss eqns)) 
-
-(define (process-new-equations eqns ctx)
-  (run-constraints (recover-vars eqns) ctx))
-
-(define (run-constraints variables ctx)
+(define (constrain-new-equations equations ctx)
+  (define variables (equations-lhss equations))
   (define constraints (context-constraints ctx))
   ;; CR dalev: ...
-  (define (intersection a b) #t)
+  (define (intersection-not-empty? a b) #t)
   (let loop ([constraints constraints]
              [ctx ctx])
     (match constraints
       ['() ctx]
-      [(cons (disunify-constraint goal eqns) rest-cs)
-       (if (intersection variables (equations-lhss eqns))
+      [(cons (disunify-constraint disunify-goal eqns) rest-cs)
+       ;; CR dalev: we may also need to look at rhss for used variables
+       (if (intersection-not-empty? variables (equations-lhss eqns))
          ;; CR dalev: GC exhausted constraints
-         (bind (goal ctx)
+         (bind (disunify-goal ctx)
                (lambda (ctx^)
                  (loop rest-cs ctx^)))
          (loop rest-cs ctx))])))
@@ -404,6 +400,7 @@
         (values (cons (var 'dummy i) lhss)
                 (cons s@i rhss))
         (let ([t@i (sbral-ref t i)])
+          ;; CR dalev: does eq? suffice since we assume s extends t?
           (if (equal? s@i t@i)
             (values lhss rhss)
             (values (cons (var 'dummy i) lhss)
@@ -584,7 +581,7 @@
      #'(conde (g ...) ... (succeed g-final ...))]
     [(_ (g0:expr g:expr ...) ...+)
      #'(lambda (ctx)
-         (thunk 
+         (thunk
            (mplus* (bind* (g0 ctx) g ...)
                    ...)
            )
