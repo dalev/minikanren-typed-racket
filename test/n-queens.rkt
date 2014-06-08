@@ -26,11 +26,11 @@ constraint is expanded into the O(n^2) disunification constraints.
         (%member columns x)
         (loop (- i 1) (cons x vars))))))
 
-(define (all-different% vars)
-  (for/fold ([goal succeed]) ([v (in-list vars)]
-                              [tl (in-tails (cdr vars))])
-    (for/fold ([goal goal]) ([v^ (in-list tl)])
-      (all goal (=/= v v^)))))
+(define (all-different% xs)
+  (for/fold ([goal succeed]) ([x (in-list xs)]
+                              [tl (in-tails (cdr xs))])
+    (for/fold ([goal goal]) ([x^ (in-list tl)])
+      (all goal (=/= x x^)))))
 
 #| This is a bit slower than the above implementation
 (define (all-different% xs)
