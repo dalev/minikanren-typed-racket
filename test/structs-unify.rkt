@@ -10,4 +10,4 @@
     (fresh (x y)
       (== p (my-pair x y))
       (== (fish 'red 10) (fish x y))))
-  (list (list (my-pair 'red 10))))
+  (list (my-pair 'red 10)))

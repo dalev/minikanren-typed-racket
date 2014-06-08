@@ -374,10 +374,12 @@
     (match (unify subst #:occurs-check? #f v w)
       [#f #f]
       [subst*
-        (if (eq? subst subst*)
-          ctx
-          (let ([d (subst-diff subst* subst)])
-            (constrain-new-equations d (context subst* constraints))))])))
+        (cond 
+          [(eq? subst subst*) ctx]
+          [(null? constraints) (context subst* constraints)]
+          [else
+            (let ([d (subst-diff subst* subst)])
+              (constrain-new-equations d (context subst* constraints)))])])))
 
 (define any-variables-in-common? 
   (local [(define (equations->variables eqns)

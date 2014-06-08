@@ -86,11 +86,11 @@
 (module+ test
   (require rackunit)
   (define expected-solution
-    '((((norwegian kools water fox yellow)
-        (ukrainian chesterfields tea horse blue)
-        (englishman oldgolds milk snails red)
-        (spaniard luckystrikes oj dog ivory)
-        (japanese parliaments coffee zebra green)))))
+    '(((norwegian kools water fox yellow)
+       (ukrainian chesterfields tea horse blue)
+       (englishman oldgolds milk snails red)
+       (spaniard luckystrikes oj dog ivory)
+       (japanese parliaments coffee zebra green))))
 
   (check-equal? (zebrao) expected-solution))
 

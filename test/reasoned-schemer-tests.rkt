@@ -24,10 +24,9 @@
 (define-syntax test-check/set
   (syntax-rules ()
     ((_ title tested-expression expected-result)
-     (begin (displayln title)
-            (check-equal? (list->set tested-expression) 
-                          (list->set expected-result) 
-                          title)))))
+     (check-equal? (list->set tested-expression) 
+                   (list->set expected-result) 
+                   title))))
 
 (define nl (string #\newline))
 
