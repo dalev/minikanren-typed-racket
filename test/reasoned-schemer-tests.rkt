@@ -16,20 +16,18 @@
 
 (define nil '())
 
-(define (maybe-map-car x) 
-  (if (and (list? x) (andmap list? x)) (map car x) x))
-
 (define-syntax test-check
   (syntax-rules ()
     ((_ title tested-expression expected-result)
-     (check-equal? (maybe-map-car tested-expression) expected-result title))))
+     (check-equal? tested-expression expected-result title))))
 
 (define-syntax test-check/set
   (syntax-rules ()
     ((_ title tested-expression expected-result)
-     (check-equal? (list->set (map car tested-expression)) 
-                   (list->set expected-result) 
-                   title))))
+     (begin (displayln title)
+            (check-equal? (list->set tested-expression) 
+                          (list->set expected-result) 
+                          title)))))
 
 (define nl (string #\newline))
 

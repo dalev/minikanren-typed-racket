@@ -5,6 +5,7 @@
   racket/set
   racket/generator
   racket/sequence
+  racket/local
   (except-in racket/match ==)
   (for-syntax racket/base
               syntax/parse))
@@ -33,7 +34,7 @@
 (module+ test (require (except-in rackunit fail)))
 
 ;; A substitution is just a sbral that may contain logic variables
-(struct var (name index))
+(struct var (name index) #:transparent)
 (define (var=? v w) (= (var-index v) (var-index w)))
 
 (define subst:empty sbral-empty)
@@ -170,30 +171,53 @@
     (string->symbol
       (string-append "_" "." (number->string n)))))
 
-;; CR dalev: reify needs to say something about constraints
-(define (reify v s)
+(define (reify-substitution v s)
   (define table (make-hasheq))
   (define count -1)
-  (let loop ([v v])
-    (let ([v (subst:walk v s)])
-      (cond
-        [(var? v)
-         (cond [(hash-ref table v #f) => identity]
-               [else
-                 (set! count (+ 1 count))
-                 (define name (reify-name count))
-                 (hash-set! table v name)
-                 name])]
-        [(pair? v) (cons (loop (car v)) (loop (cdr v)))]
-        [(vector? v)
-         (for/vector #:length (vector-length v)
-                     ([x (in-vector v)])
-                     (loop x))]
-        [(compound-struct? v)
-         (compound-struct-map loop v)]
-        [(box? v) (box (loop (unbox v)))]
-        [(mpair? v) (mcons (loop (mcar v)) (loop (mcdr v)))]
-        [else v]))))
+  (values table
+          (let loop ([v v])
+            (let ([v (subst:walk v s)])
+              (cond
+                [(var? v)
+                 (define v-index (var-index v))
+                 (cond [(hash-ref table v-index #f) => identity]
+                       [else
+                         (set! count (+ 1 count))
+                         (define name (reify-name count))
+                         (hash-set! table v-index name)
+                         name])]
+                [(pair? v) (cons (loop (car v)) (loop (cdr v)))]
+                [(vector? v)
+                 (for/vector #:length (vector-length v)
+                             ([x (in-vector v)])
+                             (loop x))]
+                [(compound-struct? v)
+                 (compound-struct-map loop v)]
+                [(box? v) (box (loop (unbox v)))]
+                [(mpair? v) (mcons (loop (mcar v)) (loop (mcdr v)))]
+                [else v])))))
+
+(define (reify v ctx)
+  (match-define (context s cs) ctx)
+  (define-values {table v*} (reify-substitution v s))
+  (define reified-constraints (reify-constraints table cs))
+  (if (null? reified-constraints)
+    ;; CR dalev: representing empty stream as #f is silly -- because we
+    ;; insert a "pseudo"-goal (reify ...) at the end of (run ...), we 
+    ;; cannot just return v* because v* may really be #f
+    (choice v* (thunk mzero))
+    (vector v* reified-constraints)))
+
+(define (reify-constraints table cs)
+  (for/list ([c (in-list cs)])
+    (match-define (disunify-constraint _goal (equations lhss rhss)) c)
+    (for/list ([lhs (in-list lhss)]
+               [rhs (in-list rhss)])
+      (list (hash-ref table (var-index lhs) (list 'var (var-name lhs) (var-index lhs)))
+            '=/=
+            ;; CR dalev: map var lookups over rhs
+            (cond [(var? rhs) (hash-ref table (var-index rhs) (var-name rhs))]
+                  [else rhs])))))
 
 (define-syntax (project stx)
   (syntax-parse stx
@@ -249,7 +273,7 @@
                          ((fresh (x) 
                             goal ... 
                             (lambda (ctx) 
-                              (reify x (context-substitution ctx))))
+                              (reify x ctx)))
                           context:empty))])
            (stream-case (s)
               [empty '()]
@@ -259,19 +283,18 @@
 
 (define-syntax (run stx)
   (syntax-parse stx
-    [(_ n (x:id ...) goal:expr ...+)
+    [(_ n (x:id) goal:expr ...+)
      #'(take n
              (thunk
-               ((fresh (x ...) 
+               ((fresh (x) 
                   goal ... 
-                  (lambda (ctx) (list (reify x (context-substitution ctx)) 
-                                      ...)))
+                  (lambda (ctx) (reify x ctx)))
                 context:empty)))]))
 
 (define-syntax (run* stx)
   (syntax-parse stx
-    [(_ (x:id ...) g:expr ...+) 
-     #'(run #f (x ...) g ...)]))
+    [(_ (x:id) g:expr ...+) 
+     #'(run #f (x) g ...)]))
 
 (define (ext-s-check s x v)
   (cond
@@ -356,20 +379,39 @@
           (let ([d (subst-diff subst* subst)])
             (constrain-new-equations d (context subst* constraints))))])))
 
+(define any-variables-in-common? 
+  (local [(define (equations->variables eqns)
+            (match-define (equations lhss rhss) eqns)
+            (for/fold ([vars lhss]) ([rhs (in-list rhss)])
+              (if (var? rhs)
+                (cons rhs vars)
+                ;; CR dalev: need to find vars inside the rhs
+                vars)))]
+    (lambda (eqns1 eqns2)
+      (for*/or ([v1 (in-list (equations->variables eqns1))]
+                [v2 (in-list (equations->variables eqns2))])
+        (var=? v1 v2)))))
+
+;; New logic variable bindings need to be checked against the constraints.
+;; As each relevant constraint's goal is applied, we remove it from the list of
+;; constraints in the context.  The goal itself will ensure that the resulting
+;; context includes any constraints that are still relevant.
+;; E.g., in
+;;   (fresh (q) (=/= q 1) (== q 7))
+;; after we unify q with 7, (=/= q 1) becomes superfluous.
 (define (constrain-new-equations equations ctx)
-  (define variables (equations-lhss equations))
-  (define constraints (context-constraints ctx))
-  ;; CR dalev: ...
-  (define (intersection-not-empty? a b) #t)
-  (let loop ([constraints constraints]
+  (let loop ([constraints (context-constraints ctx)]
              [ctx ctx])
     (match constraints
       ['() ctx]
-      [(cons (disunify-constraint disunify-goal eqns) rest-cs)
-       ;; CR dalev: we may also need to look at rhss for used variables
-       (if (intersection-not-empty? variables (equations-lhss eqns))
-         ;; CR dalev: GC exhausted constraints
-         (bind (disunify-goal ctx)
+      [(cons first-c rest-cs)
+       (match-define (disunify-constraint disunify-goal inequations) first-c)
+       (match-define (context ctx-s ctx-cs) ctx)
+       (if (any-variables-in-common? equations inequations)
+         ;; CR dalev: rather than remq each one, we should be able to
+         ;; use a zipper-like structure so that first-c is always
+         ;; at the front of ctx-cs
+         (bind (disunify-goal (context ctx-s (remq first-c ctx-cs)))
                (lambda (ctx^)
                  (loop rest-cs ctx^)))
          (loop rest-cs ctx))])))
@@ -383,7 +425,7 @@
       [#f #f]
       [subst (context subst (context-constraints ctx))])))
 
-(struct equations (lhss rhss))
+(struct equations (lhss rhss) #:transparent)
 (define (equations-empty? d) (null? (equations-lhss d)))
 
 ;; CR dalev: hack the unifier to accumulate the diff instead
@@ -426,7 +468,7 @@
 
   (check-equal?
     (run* (q) (%rember/broken '(a b a c) 'a q))
-    (map list '((b c) (b a c) (a b c) (a b a c))))
+    '((b c) (b a c) (a b c) (a b a c)))
 
   (define (%rember xs target out)
     (conde 
@@ -443,10 +485,8 @@
 
   (check-equal?
     (run* (q) (%rember '(a b a c) 'a q))
-    (map list '((b c))))
+    '((b c)))
   )
-
-
 
 ;; Add constraints to [ctx] that ensure [u] and [v] cannot unify
 (define (constrain-=/= ctx u v)
@@ -466,7 +506,7 @@
           #f
           (normalize-store equations^ ctx)))]))
 
-(struct disunify-constraint (goal equations))
+(struct disunify-constraint (goal equations) #:transparent)
 
 (define (equations->substitution eqns)
   (match-define (equations lhss rhss) eqns)
@@ -538,39 +578,43 @@
     (run n (x)
       (all (%repeat succeed)
            (== x 42)))
-    (map list (for/list ([i (in-range 0 n)]) 42)))
+    (for/list ([i (in-range 0 n)]) 42))
 
   (check-equal? 
     (run n (x)
       (all (== x 42) (%repeat succeed)))
-    (map list (for/list ([i (in-range 0 n)]) 42)))
+    (for/list ([i (in-range 0 n)]) 42))
   
   ;; [all:l->r] does not get stuck
   (check-equal?
     (run 10 (x)
       (all:l->r (%repeat succeed)
                 (== x 42)))
-    (map list (for/list ([i (in-range 0 n)]) 42)))
+    (for/list ([i (in-range 0 n)]) 42))
 
   (check-equal?
     (run 10 (x) (all:l->r (== x 42) (%repeat succeed)))
-    (map list (for/list ([i (in-range 0 n)]) 42)))
+    (for/list ([i (in-range 0 n)]) 42))
 )
 
 (module+ test
   ;; [all] and [all:l->r] produce answers in different order
   (check-equal?
-    (run* (x y)
-      (all (any (== x 1) (== x 2))
-           (any (== y 3) fail (== y 4) (== y 5))))
+    (run* (p)
+      (fresh (x y)
+        (== p (list x y))
+        (all (any (== x 1) (== x 2))
+             (any (== y 3) fail (== y 4) (== y 5)))))
     (list '(1 3) '(2 3) 
           '(1 4) '(2 4) 
           '(1 5) '(2 5)))
 
   (check-equal?
-    (run* (x y)
-      (all:l->r (any (== x 1) (== x 2))
-                       (any (== y 3) fail (== y 4) (== y 5))))
+    (run* (p)
+      (fresh (x y)
+        (== p (list x y))
+        (all:l->r (any (== x 1) (== x 2))
+                  (any (== y 3) fail (== y 4) (== y 5)))))
     (list '(1 3) '(1 4) '(1 5) 
           '(2 3) '(2 4) '(2 5)))
   )
@@ -593,8 +637,9 @@
      #'(condi (g ...) ... (succeed g-final ...))]
     [(_ (g0:expr g:expr ...) ...+)
      #'(lambda (ctx)
-         (mplus* (bind* (g0 ctx) g ...)
-                 ...))]))
+         (thunk
+           (mplus* (bind* (g0 ctx) g ...)
+                   ...)))]))
 
 (define-syntax (cond:l->r stx)
   (syntax-parse stx #:literals (else)
@@ -648,7 +693,7 @@ if g0 fails, then throw away g1 and solve with g2
                   (== 'a 'b))
              (== x 'should-not-get-here)
              (== x 'only-solution))))
-    (list '(only-solution)))
+    '(only-solution))
 
   (check-equal?
     (run* (x)
@@ -657,7 +702,7 @@ if g0 fails, then throw away g1 and solve with g2
                   (== y 4))
              (== x y)
              (== x 'should-not-get-here))))
-    (list '(2) '(4))))
+    (list 2 4)))
 
 (define-syntax (conda stx)
   (syntax-parse stx #:literals (else)
@@ -704,5 +749,5 @@ if g0 fails, then throw away g1 and solve with g2
                 (== y x))]
           [(== x 34) succeed])))
     ;; second condu question succeeds once, rhs succeeds twice
-    (list '(17) '(17))))
+    (list 17 17)))
 

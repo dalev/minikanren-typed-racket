@@ -45,11 +45,11 @@
 
   (check-equal?
     (run* (x) (%find '((k v1) (k v2) (k v3)) 'k x))
-    (map list (list 'v1 'v2 'v3)))
+    (list 'v1 'v2 'v3))
 
   (check-equal?
     (run* (x) (%find* '((k v1) (k v2) (k v3)) '(k) x))
-    (map list (list 'v1 'v2 'v3)))
+    (list 'v1 'v2 'v3))
 
   (define big-sexp
     '((entry ((name top-1)
@@ -68,9 +68,8 @@
 
   (check-equal?
     (run* (rhs) (%find big-sexp 'entry rhs))
-    (map list
-         (for/list ([entry (in-list big-sexp)])
-           (second entry))))
+    (for/list ([entry (in-list big-sexp)])
+      (second entry)))
 
   (let ([key 'entry])
     (check-equal?
@@ -79,12 +78,12 @@
 
   (check-equal?
     (run* (name) (%find* big-sexp '(entry name) name))
-    (map list (list 'top-1 'top-2 'top-3)))
+    (list 'top-1 'top-2 'top-3))
 
   (define (%child-foo-name table name)
     (%find* table '(entry children foo name) name))
 
   (check-equal?
     (run* (name) (%child-foo-name big-sexp name))
-    (map list '(foo-1 foo-2 foo-3)))
+    '(foo-1 foo-2 foo-3))
   )
