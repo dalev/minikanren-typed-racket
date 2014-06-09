@@ -53,16 +53,18 @@ constraint is expanded into the O(n^2) disunification constraints.
       [else
         (let ([q@i (car r)]
               [q@j (car s)])
-          (all (diagonal% q@i q@j (- j i))
+          (all (not-on-diagonal% q@i q@j (- j i))
                (loop r i (cdr s) (+ j 1))))])))
 
-(define (diagonal% q@i q@j d)
+;; [d] is the number of rows that separate q@i and q@j, and therefore it is
+;; also the number of columns that would separate them if they shared a diagonal
+(define (not-on-diagonal% q@i q@j d)
   (fresh (q@i+d q@j+d)
-    (=/= q@i+d q@j)
-    (=/= q@j+d q@i)
     (project (q@i q@j d)
       (== q@i+d (+ q@i d))
-      (== q@j+d (+ q@j d)))))
+      (== q@j+d (+ q@j d))
+      (=/= q@i+d q@j)
+      (=/= q@j+d q@i))))
 
 (module+ test
   (require rackunit)
@@ -70,13 +72,12 @@ constraint is expanded into the O(n^2) disunification constraints.
   (define expected-number-of-solutions
     (list 1 0 0 2 10 4 40 92))
 
-
   (for ([expected-n (in-list expected-number-of-solutions)]
         [i (in-naturals 1)]
         ;; On my macbook air, 
-        ;; n = 5 takes about 165 ms
-        ;; n = 6 takes about 1960 ms
-        ;; n = 7 takes about 42 seconds.
+        ;; n = 5 takes about 79 ms
+        ;; n = 6 takes about 1700 ms
+        ;; n = 7 takes about 38 seconds.
         #:when (<= i 7))
     (check-equal? (length (run* (queens) (n-queens% queens i)))
                   expected-n)))
