@@ -72,14 +72,15 @@ constraint is expanded into the O(n^2) disunification constraints.
   (define expected-number-of-solutions
     (list 1 0 0 2 10 4 40 92))
 
-  ;; On my macbook air, 
-  ;; n = 5 takes about 960 ms
-  ;; n = 6 takes about 11.7 seconds
-  ;; n = 7 takes about 190 seconds.
 
   (for ([expected-n (in-list expected-number-of-solutions)]
-        [i (in-naturals 1)])
-    (check-equal? (run* (queens) (n-queens% queens i))
+        [i (in-naturals 1)]
+        ;; On my macbook air, 
+        ;; n = 5 takes about 960 ms
+        ;; n = 6 takes about 11.7 seconds
+        ;; n = 7 takes about 190 seconds.
+        #:when (<= i 6))
+    (check-equal? (length (run* (queens) (n-queens% queens i)))
                   expected-n)))
 
 (module+ main
