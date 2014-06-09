@@ -14,25 +14,37 @@ by Alvis et al in the 2011 Scheme workshop.  I've replaced the FD range
 constraints with explicit [%member] calls, and the FD `all-different'
 constraint is expanded into the O(n^2) disunification constraints.
 |#
-(define (n-queens% q* n)
+(define (n-queens% queen-columns n)
   (define columns (for/list ([i (in-range n)]) i))
+  ;; the i'th variable represents the queen in row i
   (let loop ([i n] [vars '()])
     (if (zero? i)
       (all
-        (== q* vars)
+        (== queen-columns vars)
         (all-different% vars)
-        (diagonals% n vars))
+        (no-shared-diagonals% vars))
       (fresh (x)
         (%member columns x)
         (loop (- i 1) (cons x vars))))))
 
+#| Hack alert:
+[xs] is a _racket_ list of values; this is technically not a kanren relation
+in the sense that [xs] is not a kanren logic variable associated with some
+value via the substitution.
+
+The procedure constructs the desired disunification goal in one pass rather 
+than inferring it incrementally like the "purer" implementation below.
+|#
 (define (all-different% xs)
   (for/fold ([goal succeed]) ([x (in-list xs)]
                               [tl (in-tails (cdr xs))])
     (for/fold ([goal goal]) ([x^ (in-list tl)])
       (all goal (=/= x x^)))))
 
-#| This is a bit slower than the above implementation
+#| This is a "pure" implementation of [all-different%], but it makes the
+   solver run a bit slower than using the above hack.
+   (I observed a factor of about 2.5 for n = 6 or n = 7)
+
 (define (all-different% xs)
   (conde
     [(== xs '()) succeed]
@@ -45,7 +57,9 @@ constraint is expanded into the O(n^2) disunification constraints.
         (all-different% (cons snd rest)))]))
 |#
 
-(define (diagonals% n vars)
+;; Again, [vars] is a _racket_ list, not a logic variable associated with a list.
+;; CR dalev: can we write a "pure kanren" version?  how well does it perform?
+(define (no-shared-diagonals% vars)
   (let loop ([r vars] [i 0] [s (cdr vars)] [j 1])
     (cond
       [(or (null? r) (null? (cdr r))) succeed]
