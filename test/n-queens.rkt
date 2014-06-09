@@ -91,7 +91,9 @@ than inferring it incrementally like the "purer" implementation below.
         ;; On my macbook air, 
         ;; n = 5 takes about 79 ms
         ;; n = 6 takes about 1700 ms
-        ;; n = 7 takes about 38 seconds.
+        ;; n = 7 takes about 38 seconds
+        ;; n = 8 takes about 18 minutes:
+        ;;   cpu time: 1085845 real time: 1086578 gc time: 48553
         #:when (<= i 7))
     (check-equal? (length (run* (queens) (n-queens% queens i)))
                   expected-n)))
