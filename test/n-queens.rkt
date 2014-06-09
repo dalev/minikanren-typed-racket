@@ -58,13 +58,13 @@ constraint is expanded into the O(n^2) disunification constraints.
 
 (define (diagonal% q@i q@j d range)
   (fresh (q@i+d q@j+d)
-    (%member range q@i+d)
-    (%member range q@j+d)
     (=/= q@i+d q@j)
     (=/= q@j+d q@i)
     (project (q@i q@j d)
       (== q@i+d (+ q@i d))
-      (== q@j+d (+ q@j d)))))
+      (== q@j+d (+ q@j d))
+      (%member range q@i+d)
+      (%member range q@j+d))))
 
 (module+ test
   (require rackunit)
@@ -76,9 +76,9 @@ constraint is expanded into the O(n^2) disunification constraints.
   (for ([expected-n (in-list expected-number-of-solutions)]
         [i (in-naturals 1)]
         ;; On my macbook air, 
-        ;; n = 5 takes about 960 ms
-        ;; n = 6 takes about 11.7 seconds
-        ;; n = 7 takes about 190 seconds.
+        ;; n = 5 takes about 297 ms
+        ;; n = 6 takes about 2700 ms
+        ;; n = 7 takes about 52 seconds.
         #:when (<= i 6))
     (check-equal? (length (run* (queens) (n-queens% queens i)))
                   expected-n)))
