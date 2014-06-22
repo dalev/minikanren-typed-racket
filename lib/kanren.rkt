@@ -92,40 +92,54 @@
   (let-values ([(stype skipped?) (struct-info v)])
     (and stype (not skipped?))))
 
+;; unify : [#:occurs-check? bool] subst term term 
+;;         -> 
+;;         (Maybe (vector subst new-vars new-values))
 (define (unify #:occurs-check? occurs-check? s v^ w^)
   (define extend (if occurs-check? ext-s-check subst:extend))
   (let loop ([v^ v^]
              [w^ w^]
-             [s s])
-    (and s
-         (let ()
-           (define v (subst:walk v^ s))
-           (define w (subst:walk w^ s))
-           (cond
-             [(eq? v w) s]
-             [(and (both var? v w) (var=? v w)) s]
-             [(var? v) (extend s v w)]
-             [(var? w) (extend s w v)]
-             [(both pair? v w)
-              (let ([s (loop (car v) (car w) s)])
-                (loop (cdr v) (cdr w) s))]
-             [(and (both vector? v w)
-                   (= (vector-length v) (vector-length w)))
-              (for/fold ([s s]) ([a (in-vector v)]
-                                 [b (in-vector w)])
-                (loop a b s))]
-             [(and (both compound-struct? v w)
-                   (compound-struct-same? v w))
-              (for/fold ([s s]) ([a (in-compound-struct v)]
-                                 [b (in-compound-struct w)])
-                (loop a b s))]
-             [(both mpair? v w)
-              (let ([s (loop (mcar v) (mcar w) s)])
-                (loop (mcdr v) (mcdr w) s))]
-             [(both box? v w)
-              (loop (unbox v) (unbox w) s)]
-             [(equal? v w) s]
-             [else #f])))))
+             [acc (vector s '() '())])
+    (match acc
+      [#f #f]
+      [(vector s new-vars new-values)
+       (define v (subst:walk v^ s))
+       (define w (subst:walk w^ s))
+       (cond
+         [(eq? v w) acc]
+         [(and (both var? v w) (var=? v w)) acc]
+         [(var? v) 
+          (vector (extend s v w)
+                  (cons v new-vars)
+                  (cons w new-values))]
+         [(var? w) 
+          (vector (extend s w v)
+                  (cons w new-vars)
+                  (cons v new-values))]
+         [(both pair? v w)
+          (let ([acc (loop (car v) (car w) acc)])
+            (loop (cdr v) (cdr w) acc))]
+         [(and (both vector? v w)
+               (= (vector-length v) (vector-length w)))
+          ;; CR dalev: bail out of fold early when acc = #f
+          (for/fold ([acc acc])
+                    ([a (in-vector v)]
+                     [b (in-vector w)])
+            (loop a b acc))]
+         [(and (both compound-struct? v w)
+               (compound-struct-same? v w))
+          ;; CR dalev: bail out of fold early when acc = #f
+          (for/fold ([acc acc]) 
+                    ([a (in-compound-struct v)]
+                     [b (in-compound-struct w)])
+            (loop a b acc))]
+         [(both mpair? v w)
+          (let ([acc (loop (mcar v) (mcar w) acc)])
+            (loop (mcdr v) (mcdr w) acc))]
+         [(both box? v w)
+          (loop (unbox v) (unbox w) acc)]
+         [(equal? v w) acc]
+         [else #f])])))
 
 (define (occurs-check s x v)
   (let ([v (subst:walk v s)])
@@ -373,13 +387,12 @@
     (match-define (context subst constraints) ctx)
     (match (unify subst #:occurs-check? #f v w)
       [#f #f]
-      [subst*
+      [(vector subst* new-vars new-values)
         (cond 
           [(eq? subst subst*) ctx]
           [(null? constraints) (context subst* constraints)]
           [else
-            (let ([d (subst-diff subst* subst)])
-              (constrain-new-equations d (context subst* constraints)))])])))
+            (constrain-new-equations (equations new-vars new-values) (context subst* constraints))])])))
 
 (define any-variables-in-common? 
   (local [(define (equations->variables eqns)
@@ -421,35 +434,15 @@
 (define succeed (== #t #t))
 (define fail (== #t #f))
 
+;; CR dalev: fix to work with constraints
 (define (==-check v w)
   (lambda (ctx)
     (match (unify (context-substitution ctx) #:occurs-check? #t v w)
       [#f #f]
       [subst (context subst (context-constraints ctx))])))
 
+;; CR dalev: unbox equations
 (struct equations (lhss rhss) #:transparent)
-(define (equations-empty? d) (null? (equations-lhss d)))
-
-;; CR dalev: hack the unifier to accumulate the diff instead
-(define (subst-diff s t)
-  ;; in practice, we are only interested in diffs where s results from
-  ;; unifying some terms using t -- it cannot shrink.
-  (unless (>= (subst:size s) (subst:size t))
-    (error 'subst-diff "expected bigger substitution on the left: ~a ~a"
-           (subst:size s) (subst:size t)))
-  (define-values {lhss rhss}
-    (for/fold ([lhss '()] [rhss '()]) ([i (in-range (subst:size s))])
-      (define s@i (sbral-ref s i))
-      (if (>= i (subst:size t))
-        (values (cons (var 'dummy i) lhss)
-                (cons s@i rhss))
-        (let ([t@i (sbral-ref t i)])
-          ;; CR dalev: does eq? suffice since we assume s extends t?
-          (if (equal? s@i t@i)
-            (values lhss rhss)
-            (values (cons (var 'dummy i) lhss)
-                    (cons s@i rhss)))))))
-  (equations lhss rhss))
 
 ;; Produce a goal 
 (define (=/= u v)
@@ -495,18 +488,18 @@
   (define s (context-substitution ctx))
   (match (unify s #:occurs-check? #f u v)
     [#f ctx] ;; u and v do not unify -- success
-    [s^ (=/=-goal ctx (subst-diff s^ s))]))
+    [(vector s^ new-vars new-values) 
+     (=/=-goal ctx (equations new-vars new-values))]))
 
 (define (=/=-goal ctx eqns)
   (match-define (context s c) ctx)
   (match-define (equations lhss rhss) eqns)
   (match (unify s #:occurs-check? #f lhss rhss)
     [#f ctx]
-    [s^
-      (let ([equations^ (subst-diff s^ s)])
-        (if (equations-empty? equations^)
-          #f
-          (normalize-store equations^ ctx)))]))
+    [(vector s^ new-vars new-values)
+     (if (null? new-vars)
+       #f
+       (normalize-store (equations new-vars new-values) ctx))]))
 
 (struct disunify-constraint (goal equations) #:transparent)
 
