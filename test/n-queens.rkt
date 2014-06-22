@@ -89,11 +89,11 @@ than inferring it incrementally like the "purer" implementation below.
   (for ([expected-n (in-list expected-number-of-solutions)]
         [i (in-naturals 1)]
         ;; On my macbook air, 
-        ;; n = 5 takes about 79 ms
-        ;; n = 6 takes about 1700 ms
-        ;; n = 7 takes about 38 seconds
-        ;; n = 8 takes about 18 minutes:
-        ;;   cpu time: 1085845 real time: 1086578 gc time: 48553
+        ;; n = 5 takes about 90 ms
+        ;; n = 6 takes about 555 ms
+        ;; n = 7 takes about 10 seconds
+        ;; n = 8 takes about 4.5 minutes:
+        ;;    cpu time: 271592 real time: 271247 gc time: 52568
         #:when (<= i 7))
     (check-equal? (length (run* (queens) (n-queens% queens i)))
                   expected-n)))
