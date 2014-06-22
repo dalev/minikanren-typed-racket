@@ -43,7 +43,7 @@ than inferring it incrementally like the "purer" implementation below.
 
 #| This is a "pure" implementation of [all-different%], but it makes the
    solver run a bit slower than using the above hack.
-   (I observed a factor of about 2.5 for n = 6 or n = 7)
+   (I observed a factor of about 5 or so for n = 6 or n = 7)
 
 (define (all-different% xs)
   (conde
