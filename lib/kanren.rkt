@@ -441,7 +441,6 @@
       [#f #f]
       [subst (context subst (context-constraints ctx))])))
 
-;; CR dalev: unbox equations
 (struct equations (lhss rhss) #:transparent)
 
 ;; Produce a goal 
