@@ -224,7 +224,7 @@
 
 (define (reify-constraints table cs)
   (for/list ([c (in-list cs)])
-    (match-define (disunify-constraint _goal (equations lhss rhss)) c)
+    (match-define (disunify-constraint (equations lhss rhss)) c)
     (for/list ([lhs (in-list lhss)]
                [rhs (in-list rhss)])
       (list (hash-ref table (var-index lhs) (list 'var (var-name lhs) (var-index lhs)))
@@ -420,13 +420,13 @@
     (match constraints
       ['() ctx]
       [(cons first-c rest-cs)
-       (match-define (disunify-constraint disunify-goal inequations) first-c)
+       (match-define (disunify-constraint inequations) first-c)
        (match-define (context ctx-s ctx-cs) ctx)
        (if (any-variables-in-common? equations inequations)
          ;; CR dalev: rather than remq each one, we should be able to
          ;; use a zipper-like structure so that first-c is always
          ;; at the front of ctx-cs
-         (bind (disunify-goal (context ctx-s (remq first-c ctx-cs)))
+         (bind (=/=-goal (context ctx-s (remq first-c ctx-cs)) inequations)
                (lambda (ctx^)
                  (loop rest-cs ctx^)))
          (loop rest-cs ctx))])))
@@ -500,7 +500,7 @@
        #f
        (normalize-store (equations new-vars new-values) ctx))]))
 
-(struct disunify-constraint (goal equations) #:transparent)
+(struct disunify-constraint (equations) #:transparent)
 
 (define (equations->substitution eqns)
   (match-define (equations lhss rhss) eqns)
@@ -530,11 +530,7 @@
              [new-constraints '()])
     (match constraints
       ['()
-       (context s (cons (disunify-constraint 
-                          ;; CR dalev: closure not necessary
-                          (lambda (ctx)
-                            (=/=-goal ctx equations))
-                          equations)
+       (context s (cons (disunify-constraint equations)
                         new-constraints))]
       [(cons c rest-constraints)
        (define c-equations (disunify-constraint-equations c))

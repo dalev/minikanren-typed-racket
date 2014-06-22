@@ -92,8 +92,8 @@ than inferring it incrementally like the "purer" implementation below.
         ;; n = 5 takes about 90 ms
         ;; n = 6 takes about 555 ms
         ;; n = 7 takes about 10 seconds
-        ;; n = 8 takes about 4.5 minutes:
-        ;;    cpu time: 271592 real time: 271247 gc time: 52568
+        ;; n = 8 takes about 4.3 minutes:
+        ;;    cpu time: 257664 real time: 257306 gc time: 52711
         #:when (<= i 7))
     (check-equal? (length (run* (queens) (n-queens% queens i)))
                   expected-n)))
