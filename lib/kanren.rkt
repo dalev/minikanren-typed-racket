@@ -392,7 +392,8 @@
           [(eq? subst subst*) ctx]
           [(null? constraints) (context subst* constraints)]
           [else
-            (constrain-new-equations (equations new-vars new-values) (context subst* constraints))])])))
+            (constrain-new-equations (equations new-vars new-values) 
+                                     (context subst* constraints))])])))
 
 (define any-variables-in-common? 
   (local [(define (equations->variables eqns)
