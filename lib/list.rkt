@@ -1,5 +1,5 @@
 #lang racket/base
-(require "kanren.rkt")
+(require "../main.rkt")
 
 (provide (all-defined-out))
 
@@ -17,7 +17,7 @@
 
 (define (%list l)
   (conde
-    [(%null l) succeed]
+    [(%null l)]
     [(%pair l)
       (fresh (d)
         (%cdr l d)
@@ -26,18 +26,25 @@
 (define (%member l x)
   (conde
     [(%null l) fail]
-    [(%car l x) succeed]
-    [succeed
-      (fresh (d)
-        (%cdr l d)
-        (%member d x))]))
+    [(%car l x)]
+    [(fresh (d)
+       (%cdr l d)
+       (%member d x))]))
 
 (define (%append l s out)
   (conde
     [(%null l) (== s out)]
-    [succeed 
-      (fresh (a d res)
-        (%cons l a d)
-        (%cons out a res)
-        (%append d s res))]))
+    [(fresh (a d res)
+       (%cons l a d)
+       (%cons out a res)
+       (%append d s res))]))
 
+(module+ test
+  (require rackunit)
+  (check-equal?
+    (run* (xs ys) (%append xs ys '(1 2 3)))
+    (list 
+      (list '() '(1 2 3))
+      (list '(1) '(2 3))
+      (list '(1 2) '(3))
+      (list '(1 2 3) '()))))
