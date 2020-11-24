@@ -2,6 +2,7 @@
 (require racket/fixnum
          racket/match)
 (provide
+  sbral?
   sbral-empty?
   sbral-empty
   sbral-cons

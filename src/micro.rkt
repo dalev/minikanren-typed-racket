@@ -7,25 +7,35 @@
   fail
   empty-state
 
-  reify-1st
-  )
+  reify-1st)
 
-(define empty-state (cons '() 0))
+(require "skew-bral.rkt"
+         racket/match)
 
-(define (var c) (vector c))
-(define (var? x) (vector? x))
-(define (var=? x1 x2) (= (vector-ref x1 0) (vector-ref x2 0)))
+(module+ test (require rackunit))
+
+(define empty-state (cons sbral-empty 0))
+
+(struct var [index])
+
+(define (var=? x y) (= (var-index x) (var-index y)))
 
 (define (walk u s)
-  (let ((pr (and (var? u) (assf (lambda (v) (var=? u v)) s))))
-    (if pr (walk (cdr pr) s) u)))
+  (let ([pr (and (var? u) (sbral-ref s (var-index u)))])
+    (cond 
+      [(not pr) u]
+      [(eq? pr u) u]
+      [else (walk pr s)])))
 
-(define (ext-s x v s) `((,x . ,v) . ,s))
+(define (ext-s x v s) 
+  (sbral-set s (var-index x) v))
 
 (define (== u v)
   (lambda (s/c)
     (let ((s (unify u v (car s/c))))
-      (if s (unit `(,s . ,(cdr s/c))) mzero))))
+      (if s 
+        (unit (cons s (cdr s/c))) 
+        mzero))))
 
 (define (unit s/c) (cons s/c mzero))
 
@@ -46,8 +56,9 @@
 
 (define (call/fresh f)
   (lambda (s/c)
-    (let ((c (cdr s/c)))
-      ((f (var c)) `(,(car s/c) . ,(+ c 1))))))
+    (match-define (cons s c) s/c)
+    (define x (var c))
+    ((f x) (cons (sbral-cons x s) (+ c 1)))))
 
 (define (disj g1 g2) (lambda (s/c) (mplus (g1 s/c) (g2 s/c))))
 (define (conj g1 g2) (lambda (s/c) (bind (g1 s/c) g2)))
@@ -66,25 +77,33 @@
 
 (define (reify-1st s/c)
   (let ((v (walk* (var 0) (car s/c))))
-    (walk* v (reify-s v '()))))
+    v))
 
 (define (walk* v s)
   (let ((v (walk v s)))
     (cond
       ((var? v) v)
       ((pair? v) (cons (walk* (car v) s)
-                   (walk* (cdr v) s)))
+                       (walk* (cdr v) s)))
       (else  v))))
-
-(define (reify-s v s)
-  (let ((v (walk v s)))
-    (cond
-      ((var? v)
-       (let  ((n (reify-name (length s))))
-         (cons `(,v . ,n) s)))
-      ((pair? v) (reify-s (cdr v) (reify-s (car v) s)))
-      (else s))))
 
 (define (reify-name n)
   (string->symbol
     (string-append "_" "." (number->string n))))
+
+(module+ test
+  (check-equal?
+    (sbral-ref (sbral-cons 17 sbral-empty) 0)
+    17)
+
+  (check-equal?
+    (walk (var 0) (sbral-cons 17 sbral-empty))
+    17)
+
+  (check-equal?
+    (let ([stream 
+            ((call/fresh (lambda (x) (== x 42)))
+             empty-state)])
+      (map reify-1st stream))
+    (list 42)))
+
