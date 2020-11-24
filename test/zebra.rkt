@@ -1,6 +1,5 @@
 #lang racket/base
 (require "../main.rkt")
-(provide zebrao test-zebra)
 
 (define (nullo x) (== '() x))
 
@@ -26,14 +25,6 @@
     (conde
       ((on-righto e1 e2 ls))
       ((on-righto e2 e1 ls)))))
-
-(define test-zebra
-  (lambda (n)
-    (cond
-      ((zero? n) '())
-      (else (begin
-              (zebrao)
-              (test-zebra (sub1 n)))))))
 
 (define zebrao
   (lambda ()
@@ -97,5 +88,7 @@
 (module+ main
   (define n 500)
   (printf "Timing ~a runs...~n" n)
-  (time (test-zebra n)))
+  (time
+    (for ([_ (in-range 0 n)])
+      (zebrao))))
 

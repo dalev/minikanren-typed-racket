@@ -1,9 +1,6 @@
 #lang racket/base
-(require "lib/kanren.rkt"
-         "lib/list.rkt"
-         "lib/sexp.rkt"
-         "lib/util.rkt")
-(provide (all-from-out "lib/kanren.rkt"
-                       "lib/list.rkt"
-                       "lib/sexp.rkt"
-                       "lib/util.rkt"))
+(require "src/micro.rkt"
+         "src/mini.rkt")
+
+(provide (all-from-out "src/micro.rkt"
+                       "src/mini.rkt"))
