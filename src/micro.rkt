@@ -19,23 +19,21 @@
 
 (require racket/match)
 
-(require/typed racket/fixnum [fx+ (-> Fixnum Fixnum Fixnum)])
-
 (require "skew-bral.rkt")
 (define-type Sbral (sbral Any))
 
 (module+ test (require typed/rackunit))
 
-(define-type Subst (Pair Sbral Fixnum))
+(define-type Subst (Pair Sbral Integer))
 
 (define-type Stream 
              (U Null 
                 (Pair Subst Stream)
                 (-> Stream)))
 
-(define-type Goal (-> Sbral Fixnum Stream))
+(define-type Goal (-> Sbral Integer Stream))
 
-(struct var [{index : Fixnum}] #:transparent)
+(struct var [{index : Integer}] #:transparent)
 
 (: var=? : var var -> Boolean)
 (define (var=? x y) (= (var-index x) (var-index y)))
@@ -60,7 +58,7 @@
         (unit s c) 
         mzero))))
 
-(: unit : Sbral Fixnum -> Stream)
+(: unit : Sbral Integer -> Stream)
 (define (unit s c) (cons (cons s c) mzero))
 
 (: mzero : Stream)
@@ -85,7 +83,7 @@
 (define (call/fresh f)
   (lambda (s c)
     (define x (var c))
-    ((f x) (sbral-cons x s) (fx+ c 1))))
+    ((f x) (sbral-cons x s) (+ c 1))))
 
 (: disj2 : Goal Goal -> Goal)
 (define (disj2 g1 g2) (lambda (s c) (mplus (g1 s c) (g2 s c))))
@@ -110,7 +108,7 @@
         (mplus (g (car fst) (cdr fst)) 
                (bind (cdr $) g))))))
 
-(: reify-1st : (Pair Sbral Fixnum) -> Any)
+(: reify-1st : (Pair Sbral Integer) -> Any)
 (define (reify-1st s/c)
   (let ((v (walk* (var 0) (car s/c))))
     v))
@@ -124,7 +122,7 @@
                        (walk* (cdr v) s)))
       (else  v))))
 
-(: reify-name : Fixnum -> Symbol)
+(: reify-name : Integer -> Symbol)
 (define (reify-name n)
   (string->symbol
     (string-append "_" "." (number->string n))))

@@ -21,16 +21,12 @@
     (syntax-rules ()
       [(_ e) (lambda () e)])))
 
-;; At the leaves, we just have a non-node value.
 (define-type (Tree t) (U (leaf t) (branch t)))
-
 (struct (t) leaf ({val : t}))
 (struct (t) branch ({val : t} {even : (Tree t)} {odd : (Tree t)}))
 
 (define-type (Forest t) (U empty-forest (cons-forest t)))
-
 (struct empty-forest ())
-
 (struct (t) cons-forest ({weight : Integer} {tree : (Tree t)} {child : (Forest t)}))
 
 (struct (t) sbral ({size : Integer} {forest : (Forest t)}))
