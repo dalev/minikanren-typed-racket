@@ -88,7 +88,16 @@
 (module+ main
   (define n 500)
   (printf "Timing ~a runs...~n" n)
-  (time
-    (for ([_ (in-range 0 n)])
-      (zebrao))))
+  (define-values {_answers cpu real gc}
+    (time-apply 
+      (lambda ()
+        (for ([_ (in-range 0 n)])
+          (zebrao))) 
+      '()))
+
+  (let ([n (exact->inexact n)])
+    (printf "Per run: cpu: ~a ms, real: ~a ms, gc: ~a ms~n"
+            (/ cpu n) 
+            (/ real n) 
+            (/ gc n))))
 
