@@ -2,10 +2,10 @@
 (provide
   call/fresh
   ==
-  disj
-  conj
+  disj2
+  conj2
   fail
-  empty-state
+  sbral-empty
 
   reify-1st)
 
@@ -13,8 +13,6 @@
          racket/match)
 
 (module+ test (require rackunit))
-
-(define empty-state (cons sbral-empty 0))
 
 (struct var [index])
 
@@ -31,17 +29,17 @@
   (sbral-set s (var-index x) v))
 
 (define (== u v)
-  (lambda (s/c)
-    (let ((s (unify u v (car s/c))))
+  (lambda (s c)
+    (let ((s (unify u v s)))
       (if s 
-        (unit (cons s (cdr s/c))) 
+        (unit s c) 
         mzero))))
 
-(define (unit s/c) (cons s/c mzero))
+(define (unit s c) (cons (cons s c) mzero))
 
 (define mzero '())
 
-(define fail (lambda (_) mzero))
+(define fail (lambda (_s _c) mzero))
 
 (define (unify u v s)
   (let ((u (walk u s)) (v (walk v s)))
@@ -55,13 +53,12 @@
       (else (and (eqv? u v) s)))))
 
 (define (call/fresh f)
-  (lambda (s/c)
-    (match-define (cons s c) s/c)
+  (lambda (s c)
     (define x (var c))
-    ((f x) (cons (sbral-cons x s) (+ c 1)))))
+    ((f x) (sbral-cons x s) (+ c 1))))
 
-(define (disj g1 g2) (lambda (s/c) (mplus (g1 s/c) (g2 s/c))))
-(define (conj g1 g2) (lambda (s/c) (bind (g1 s/c) g2)))
+(define (disj2 g1 g2) (lambda (s c) (mplus (g1 s c) (g2 s c))))
+(define (conj2 g1 g2) (lambda (s c) (bind (g1 s c) g2)))
 
 (define (mplus $1 $2)
   (cond
@@ -73,7 +70,10 @@
   (cond
     ((null? $) mzero)
     ((procedure? $) (lambda () (bind ($) g)))
-    (else (mplus (g (car $)) (bind (cdr $) g)))))
+    (else 
+      (let ([fst (car $)])
+        (mplus (g (car fst) (cdr fst)) 
+               (bind (cdr $) g))))))
 
 (define (reify-1st s/c)
   (let ((v (walk* (var 0) (car s/c))))
@@ -103,7 +103,8 @@
   (check-equal?
     (let ([stream 
             ((call/fresh (lambda (x) (== x 42)))
-             empty-state)])
+             sbral-empty
+             0)])
       (map reify-1st stream))
     (list 42)))
 
