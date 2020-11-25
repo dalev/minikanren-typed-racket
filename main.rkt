@@ -1,4 +1,4 @@
-#lang racket/base
+#lang typed/racket/base
 (require "src/micro.rkt"
          "src/mini.rkt")
 

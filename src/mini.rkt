@@ -1,12 +1,11 @@
-#lang racket/base
+#lang typed/racket/base
 (provide 
   fresh
   conde
   run
   run*
   conj
-  disj
-  fail)
+  disj)
 
 (require "micro.rkt")
 
@@ -45,18 +44,4 @@
   (syntax-rules ()
     ((_ (x ...) g0 g ...)
      (map reify-1st (take-all (call/goal (fresh (x ...) g0 g ...)))))))
-
-(define (call/goal g) (g sbral-empty 0))
-
-(define (pull $)
-  (if (procedure? $) (pull ($)) $))
-
-(define (take-all $)
-  (let (($ (pull $)))
-    (if (null? $) '() (cons (car $) (take-all (cdr $))))))
-
-(define (take n $)
-  (if (zero? n) '()
-    (let (($ (pull $)))
-      (if (null? $) '() (cons (car $) (take (- n 1) (cdr $)))))))
 

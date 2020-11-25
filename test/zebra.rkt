@@ -1,8 +1,10 @@
-#lang racket/base
+#lang typed/racket/base
 (require "../main.rkt")
 
+(: nullo : Any -> Goal)
 (define (nullo x) (== '() x))
 
+(: membo : Any Any -> Goal)
 (define membo
   (lambda (elt ls)
     (fresh (d a)
@@ -11,6 +13,7 @@
         ((== (cons elt d) ls))
         ((== (cons a d) ls) (membo elt d))))))
 
+(: on-righto : Any Any Any -> Goal)
 (define on-righto
   (lambda (e1 e2 ls)
     (fresh (d a r)
@@ -20,6 +23,7 @@
         ((== (cons e1 d) ls) (== (cons e2 r) d))
         ((== (cons a d) ls) (on-righto e1 e2 d))))))
 
+(: next-too : Any Any Any -> Goal)
 (define next-too
   (lambda (e1 e2 ls)
     (conde
@@ -75,7 +79,7 @@
           (membo `(,t1 ,t2 ,t3 zebra ,t4) h)))))) ;?
 
 (module+ test
-  (require rackunit)
+  (require typed/rackunit)
   (define expected-solution
     '(((norwegian kools water fox yellow)
        (ukrainian chesterfields tea horse blue)
@@ -86,7 +90,7 @@
   (check-equal? (zebrao) expected-solution))
 
 (module+ main
-  (define n 500)
+  (define n 10)
   (printf "Timing ~a runs...~n" n)
   (define-values {_answers cpu real gc}
     (time-apply 
