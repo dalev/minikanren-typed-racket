@@ -1,7 +1,6 @@
-#lang racket/base
-(require racket/fixnum
-         racket/match)
+#lang typed/racket/base
 (provide
+  sbral
   sbral?
   sbral-empty?
   sbral-empty
@@ -15,103 +14,35 @@
   sbral->list
   list->sbral)
 
-(module+ test (require rackunit racket/function))
+(require racket/match)
 
-(module internal-structures racket/base
-  ;; CR dalev: it seems like merely implementing the gen:equal+hash interface
-  ;; on these structures causes the zebra benchmark to slow down 37%!
-  ;; Investigate this more -- I'm pretty sure the unifier does not suddenly
-  ;; start comparing or hashing substitutions.
-  (require racket/match racket/fixnum)
-  (provide (struct-out branch)
-           (struct-out empty-forest)
-           (struct-out cons-forest)
-           (struct-out sbral))
-  (define (branch=? b1 b2 rec-equal?)
-    (match* {b1 b2}
-      [{(branch v1 e1 o1)
-        (branch v2 e2 o2)}
-        (and (rec-equal? v1 v2)
-             (rec-equal? e1 e2)
-             (rec-equal? o1 o2))]))
+(module+ test (require typed/rackunit)
+  (define-syntax thunk
+    (syntax-rules ()
+      [(_ e) (lambda () e)])))
 
-  (define (branch-hash b rec-hash)
-    (match b
-      [(branch v even odd)
-       (rec-hash (list v even odd))]))
+;; At the leaves, we just have a non-node value.
+(define-type (Tree t) (U (leaf t) (branch t)))
 
-  (define (branch-hash2 b rec-hash) (branch-hash b rec-hash))
+(struct (t) leaf ({val : t}))
+(struct (t) branch ({val : t} {even : (Tree t)} {odd : (Tree t)}))
 
-  ;; (Tree a) = (branch a (Tree a) (Tree a)) U a
-  ;; At the leaves, we just have a non-node value.
-  (struct branch (val even odd)
-          #:methods gen:equal+hash
-          [(define equal-proc branch=?)
-           (define hash-proc branch-hash)
-           (define hash2-proc branch-hash2)])
+(define-type (Forest t) (U empty-forest (cons-forest t)))
 
+(struct empty-forest ())
 
-  (define (empty-forest=? f1 f2 _)
-    (and (empty-forest? f1) (empty-forest? f2)))
+(struct (t) cons-forest ({weight : Integer} {tree : (Tree t)} {child : (Forest t)}))
 
-  (define empty-forest-hash (equal-hash-code 0))
-  (define empty-forest-hash2 (equal-secondary-hash-code 0))
+(struct (t) sbral ({size : Integer} {forest : (Forest t)}))
 
-  ;; (Forest a) = (empty-forest) U (cons-forest fixnum? (Tree a) (Forest a))
-  (struct empty-forest ()
-          #:methods gen:equal+hash
-          [(define equal-proc empty-forest=?)
-           (define (hash-proc a b) empty-forest-hash)
-           (define (hash2-proc a b) empty-forest-hash2)])
-
-  (define (cons-forest=? f1 f2 rec-equal?)
-    (match* {f1 f2}
-      [{(cons-forest w1 t1 f1*) (cons-forest w2 t2 f2*)}
-                                (and (rec-equal? w1 w2)
-                                     (rec-equal? t1 t2)
-                                     (rec-equal? f1* f2*))]))
-
-  (define (cons-forest-hash f rec-hash)
-    (match f
-      [(cons-forest weight tree sub-forest)
-       (rec-hash (list weight tree sub-forest))]))
-
-  (define (cons-forest-hash2 f rec-hash)
-    (cons-forest-hash f rec-hash))
-
-  (struct cons-forest (weight tree child)
-          #:methods gen:equal+hash
-          [(define equal-proc cons-forest=?)
-           (define hash-proc cons-forest-hash)
-           (define hash2-proc cons-forest-hash2)])
-
-  (define (sbral=? s1 s2 rec-equal?)
-    (and (fx= (sbral-size s1) (sbral-size s2))
-         (rec-equal? (sbral-forest s1) (sbral-forest s2))))
-
-  (define (sbral-hash s rec-hash)
-    (match s
-      [(sbral size forest)
-       (rec-hash (list size forest))]))
-
-  (define (sbral-hash2 s rec-hash)
-    (sbral-hash s rec-hash))
-
-  ;; (Sbral a) = (sbral fixnum? (Forest a))
-  (struct sbral (size forest)
-          #:methods gen:equal+hash
-          [(define equal-proc sbral=?)
-           (define hash-proc sbral-hash)
-           (define hash2-proc sbral-hash2)]))
-
-(require 'internal-structures)
-
+(: forest-weight : (All (t) (Forest t) -> Integer))
 (define (forest-weight forest)
   (match forest
     [(empty-forest) 0]
     [(cons-forest weight _ child-forest)
      (+ weight (forest-weight child-forest))]))
 
+(: assert-invariant! : (All (t) (sbral t) -> 'ok))
 (define (assert-invariant! sbral)
   (unless (= (sbral-size sbral) 
              (forest-weight (sbral-forest sbral)))
@@ -125,83 +56,100 @@
          (loop child-forest))])))
 
 (define sbral-empty (sbral 0 (empty-forest)))
+(: sbral-empty? : (All (t) (sbral t) -> Boolean))
 (define (sbral-empty? s) (fxzero? (sbral-size s)))
 (module+ test (check-not-exn (thunk (assert-invariant! sbral-empty))))
 
+(: sbral-cons : (All (t) t (sbral t) -> (sbral t)))
 (define (sbral-cons elt s)
-  (match s
-    [(sbral size forest)
-     (sbral (fx+ 1 size) (forest-add forest elt))]))
+  (let ([size : Integer (sbral-size s)]
+        [forest : (Forest t) (sbral-forest s)])
+    (let ([forest* : (Forest t) (forest-add forest elt)])
+      ((inst sbral t) (+ 1 size) forest*))))
 
+(: sbral-head : (All (t) (sbral t) -> t))
 (define (sbral-head s) (forest-head (sbral-forest s)))
 
+(: sbral-tail : (All (t) (sbral t) -> (sbral t)))
 (define (sbral-tail s)
   (match s
     [(sbral size forest)
-     (sbral (fx- size 1) (forest-tail forest))]))
+     (let ([forest* : (Forest t) (forest-tail forest)])
+       (sbral (- size 1) forest*))]))
 
+(: from-tail : Integer Integer -> Integer)
 (define (from-tail i sbral-size)
-  (fx- (fx- sbral-size 1) i))
+  (- (- sbral-size 1) i))
 
+(: sbral-ref : (All (t) (sbral t) Integer -> (Option t)))
 (define (sbral-ref sbral index)
   (forest-ref (sbral-forest sbral)
               (from-tail index (sbral-size sbral))))
 
+(: sbral-set : (All (t) (sbral t) Integer t -> (sbral t)))
 (define (sbral-set s index v)
   (match s
     [(sbral size forest)
-     (sbral size (forest-set forest 
-                             (from-tail index size) 
-                             v))]))
+     (let ([forest* : (Forest t)
+                    (forest-set forest 
+                                (from-tail index size) 
+                                v)])
+       (sbral size forest*))]))
 
+(: sbral->reversed-list : (All (t) (sbral t) -> (Listof t)))
 (define (sbral->reversed-list sbral)
-  (let loop ([forest (sbral-forest sbral)]
-             [elements '()])
+  (let loop ([forest : (Forest t) (sbral-forest sbral)]
+             [elements : (Listof t) '()])
     (match forest
       [(empty-forest) elements]
       [_ (loop (forest-tail forest)
-               (cons (forest-head forest) elements))])))
+               ((inst cons t (Listof t)) (forest-head forest) elements))])))
 
+(: sbral->list : (All (t) (sbral t) -> (Listof t)))
 (define (sbral->list sbral)
   (reverse (sbral->reversed-list sbral)))
 
+(: list->sbral : (All (t) (Listof t) -> (sbral t)))
 (define (list->sbral elements)
-  (define-values [size forest]
-    (for/fold ([acc-size 0]
-               [forest (empty-forest)])
-      ([elt (in-list (reverse elements))]
-       [size (in-naturals 1)])
-      (values size (forest-add forest elt))))
-  (sbral size forest))
+  (define forest
+    (for/fold ([forest : (Forest t) (empty-forest)])
+      ([elt (in-list (reverse elements))])
+      (forest-add forest elt)))
+  (sbral (length elements) forest))
 
 ;;
 ;; Forest & Tree helper functions
 ;;
 
-(define (fxzero? x) (fx= x 0))
+(: fxzero? : Integer -> Boolean)
+(define (fxzero? x) (zero? x))
 
-(define (half n) (fxrshift n 1))
+(: half : Integer -> Integer)
+(define (half n) (arithmetic-shift n -1))
 
 ;; Produce a new forest with [v] at the logical "end"
+(: forest-add : (All (t) (Forest t) t -> (Forest t)))
 (define (forest-add forest elt)
   (match forest
     [(cons-forest w0 tree0 (cons-forest w1 tree1 sub-forest))
-     (if (fx= w0 w1)
-       (cons-forest (fx+ 1 (fx+ w0 w1))
+     (if (= w0 w1)
+       (cons-forest (+ 1 w0 w1)
                     (branch elt tree0 tree1)
                     sub-forest)
-       (cons-forest 1 elt forest))]
-    [_ (cons-forest 1 elt forest)]))
+       (cons-forest 1 (leaf elt) forest))]
+    [_ (cons-forest 1 (leaf elt) forest)]))
 
+(: forest-head : (All (t) (Forest t) -> t))
 (define (forest-head forest)
   (match forest
     [(empty-forest)
      (raise-argument-error 'forest-head "nonempty forest" forest)]
-    [(cons-forest _ tree _)
+    [(cons-forest _1 tree _2)
      (match tree
-       [(branch head-elt _ _) head-elt]
-       [_ tree])]))
+       [(branch val _1 _2) val]
+       [(leaf val) val])]))
 
+(: forest-tail : (All (t) (Forest t) -> (Forest t)))
 (define (forest-tail forest)
   (match forest
     [(empty-forest) 
@@ -215,62 +163,65 @@
     [(cons-forest weight (branch elt t-even t-odd) sub-forest)
      (when (even? weight) 
        (error 'forest-tail "ill-formed forest: even weight: ~a" forest))
-     (let ([w* (half (fx- weight 1))])
+     (let ([w* (half (- weight 1))])
        (when (even? w*) (error 'forest-tail "bug: even w*"))
        (cons-forest w* t-even (cons-forest w* t-odd sub-forest)))]))
 
+(: tree-ref : (All (a) (Tree a) Integer Integer -> (Option a)))
 (define (tree-ref t w i)
   (cond
     [(branch? t)
      (if (fxzero? i) 
        (branch-val t)
        (let [(w/2 (half w))]
-         (if (fx<= i w/2)
-           (tree-ref (branch-even t) w/2 (fx- i 1))
-           (tree-ref (branch-odd t)  w/2 (fx- (fx- i 1) w/2)))))]
+         (if (<= i w/2)
+           (tree-ref (branch-even t) w/2 (- i 1))
+           (tree-ref (branch-odd t)  w/2 (- (- i 1) w/2)))))]
     [else
-      ;; [t] is the value sitting at this leaf of the tree.
-      (if (fxzero? i) t #f)]))
+      (if (fxzero? i) (leaf-val t) #f)]))
 
+(: forest-ref : (All (t) (Forest t) Integer -> (Option t)))
 (define (forest-ref forest i)
   (match forest
     [(empty-forest) #f]
     [(cons-forest weight tree sub-forest)
-     (if (fx< i weight)
+     (if (< i weight)
        (tree-ref tree weight i)
-       (forest-ref sub-forest (fx- i weight)))]))
+       (forest-ref sub-forest (- i weight)))]))
 
+(: tree-set : (All (t) (Tree t) Integer Integer t -> (Tree t)))
 (define (tree-set t w i v)
   (match t
     [(branch t-val t-even t-odd)
      (if (fxzero? i) 
        (branch v t-even t-odd)
        (let [(w/2 (half w))]
-         (if (fx<= i w/2)
+         (if (<= i w/2)
            (branch t-val
-                   (tree-set t-even w/2 (fx- i 1) v)
+                   (tree-set t-even w/2 (- i 1) v)
                    t-odd)
            (branch t-val
                    t-even
-                   (tree-set t-odd w/2 (fx- (fx- i 1) w/2) v)))))]
+                   (tree-set t-odd w/2 (- (- i 1) w/2) v)))))]
     [_ (if (fxzero? i)
-         v 
+         (leaf v)
          ;; CR dalev: throw range error
          (raise-argument-error 'tree-set "index too big" i))]))
 
+(: forest-set : (All (t) (Forest t) Integer t -> (Forest t)))
 (define (forest-set forest i v)
   (match forest
     [(empty-forest) 
      ;; CR dalev: throw range error
      (raise-argument-error 'forest-set "index too big" i)]
     [(cons-forest weight tree sub-forest)
-     (if (fx< i weight)
+     (if (< i weight)
        (cons-forest weight 
                     (tree-set tree weight i v) 
                     sub-forest)
        (cons-forest weight 
                     tree 
-                    (forest-set sub-forest (fx- i weight) v)))]))
+                    (forest-set sub-forest (- i weight) v)))]))
 
 (module+ test
   (define sbral-4 
@@ -294,8 +245,12 @@
       15
       (branch
         'a
-        (branch 'b (branch 'c 'd 'e) (branch 'f 'g 'h))
-        (branch 'i (branch 'j 'k 'l) (branch 'm 'n 'o)))
+        (branch 'b 
+                (branch 'c (leaf 'd) (leaf 'e)) 
+                (branch 'f (leaf 'g) (leaf 'h)))
+        (branch 'i 
+                (branch 'j (leaf 'k) (leaf 'l)) 
+                (branch 'm (leaf 'n) (leaf 'o))))
       (empty-forest)))
 
   (define sbral-15 (sbral 15 a-forest))

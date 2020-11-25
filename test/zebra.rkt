@@ -90,7 +90,7 @@
   (check-equal? (zebrao) expected-solution))
 
 (module+ main
-  (define n 10)
+  (define n 100)
   (printf "Timing ~a runs...~n" n)
   (define-values {_answers cpu real gc}
     (time-apply 

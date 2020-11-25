@@ -21,13 +21,8 @@
 
 (require/typed racket/fixnum [fx+ (-> Fixnum Fixnum Fixnum)])
 
-(require/typed 
-  "skew-bral.rkt"
-  [#:opaque Sbral sbral?]
-  [sbral-empty Sbral]
-  [sbral-cons (-> Any Sbral Sbral)]
-  [sbral-ref (-> Sbral Fixnum Any)]
-  [sbral-set (-> Sbral Fixnum Any Sbral)])
+(require "skew-bral.rkt")
+(define-type Sbral (sbral Any))
 
 (module+ test (require typed/rackunit))
 
