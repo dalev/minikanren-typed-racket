@@ -81,16 +81,16 @@
 (module+ test
   (require typed/rackunit)
   (define expected-solution
-    '(((norwegian kools water fox yellow)
-       (ukrainian chesterfields tea horse blue)
-       (englishman oldgolds milk snails red)
-       (spaniard luckystrikes oj dog ivory)
-       (japanese parliaments coffee zebra green))))
+    '((norwegian kools water fox yellow)
+      (ukrainian chesterfields tea horse blue)
+      (englishman oldgolds milk snails red)
+      (spaniard luckystrikes oj dog ivory)
+      (japanese parliaments coffee zebra green)))
 
-  (check-equal? (zebrao) expected-solution))
+  (check-equal? (zebrao) (list expected-solution)))
 
 (module+ main
-  (define n 500)
+  (define n 1000)
   (printf "Timing ~a runs...~n" n)
   (define-values {_answers cpu real gc}
     (time-apply 

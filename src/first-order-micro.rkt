@@ -1,18 +1,15 @@
 #lang typed/racket
 (provide
-  ==
+  run*
   fresh
+  ==
   conde
   conj
   disj
   fail
-  run*
 
   Term
-  Goal
-
-  step-goal
-  step-stream)
+  Goal)
 
 (require racket/match
          "term.rkt")
@@ -63,24 +60,26 @@
 (define (step-stream stream)
   (match stream
     [(Bind s g) 
-     (let ([s (if (stream-ready? s) s (step-stream s))])
-       (match s 
-         ['() '()]
-         [(cons fst snd)
-          (step-stream
-            (Mplus (Pause fst g)
-                   (Bind snd g)))]
-         [_ (Bind s g)]))]
+     (match s 
+       ['() '()]
+       [(cons fst '())
+        (Pause fst g)]
+       [(cons fst snd)
+        (Mplus (Pause fst g)
+               (Bind snd g))]
+       [(Bind s* g*)
+        (Bind s* (Conj2 g* g))]
+       [_ (Bind (step-stream s) g)])]
     [(Mplus lhs rhs) 
-     (let ([s (if (stream-ready? lhs) lhs (step-stream lhs))])
-       (match s
+       (match lhs
          ['() rhs]
-         [(cons fst snd)
-          (cons fst (Mplus rhs snd))]
-         [_ (Mplus rhs s)]))]
+         [(cons lhs-fst lhs-snd)
+          (cons lhs-fst (Mplus rhs lhs-snd))]
+         [_ (Mplus rhs (step-stream lhs))])]
     [(Pause state goal) (step-goal state goal)]
-    ['() stream]
-    [(cons _1 _2) stream]))
+    [(or (? null?) 
+         (? pair?)) 
+     stream]))
 
 (define fail (== 0 1))
 
@@ -117,7 +116,7 @@
            (begin
              (: rel : (-> x-ty ... Goal))
              (define rel 
-               (lambda ({x : Term} ...) : Goal 
+               (lambda (x ...)
                  (conj g0 g ...)))))))]))
 
 (: stream->list : Stream -> (Listof State))
