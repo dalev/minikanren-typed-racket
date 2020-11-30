@@ -23,8 +23,8 @@
         ((== (cons e1 d) ls) (== (cons e2 r) d))
         ((== (cons a d) ls) (on-righto e1 e2 d))))))
 
-(: next-too : Term Term Term -> Goal)
-(define next-too
+(: next-to : Term Term Term -> Goal)
+(define next-to
   (lambda (e1 e2 ls)
     (conde
       ((on-righto e1 e2 ls))
@@ -51,7 +51,7 @@
           (on-righto `(,t1 ,t2 ,t3 ,t4 ivory)
                      `(,t5 ,t6 ,t7 ,t8 green) h))
         (fresh (t1 t2 t3 t4 t5 t6 t7 t8)
-          (next-too `(norwegian ,t1 ,t2 ,t3 ,t4)
+          (next-to `(norwegian ,t1 ,t2 ,t3 ,t4)
                     `(,t5 ,t6 ,t7 ,t8 blue) h))
         (fresh (t1 t2 t3)
           (membo `(,t1 kools ,t2 ,t3 yellow) h))
@@ -68,10 +68,10 @@
         (fresh (t1 t2 t3)
           (membo `(,t1 oldgolds ,t2 snails ,t3) h))
         (fresh (t1 t2 t3 t4 t5 t6 t7 t8)
-          (next-too `(,t1 ,t2 ,t3 horse ,t4) 
+          (next-to `(,t1 ,t2 ,t3 horse ,t4) 
                     `(,t5 kools ,t6 ,t7 ,t8) h))
         (fresh (t1 t2 t3 t4 t5 t6 t7 t8)
-          (next-too `(,t1 ,t2 ,t3 fox ,t4)
+          (next-to `(,t1 ,t2 ,t3 fox ,t4)
                     `(,t5 chesterfields ,t6 ,t7 ,t8) h))
         (fresh (t1 t2 t3 t4)
           (membo `(,t1 ,t2 water ,t3 ,t4) h)) ;?
