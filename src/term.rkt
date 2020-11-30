@@ -5,7 +5,8 @@
          subst-new-var
          subst-empty
          unify
-         walk)
+         walk
+         walk*)
 
 (require "skew-bral.rkt")
 
@@ -48,6 +49,15 @@
       [(not pr) u]
       [(eq? pr u) u]
       [else (walk pr s)])))
+
+(: walk* : Term Subst -> Term)
+(define (walk* v s)
+  (let ([v (walk v s)])
+    (cond
+      [(var? v) v]
+      [(pair? v) (cons (walk* (car v) s)
+                       (walk* (cdr v) s))]
+      [else  v])))
 
 (: ext-s : var Term Subst -> Subst)
 (define (ext-s x v s) 

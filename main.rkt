@@ -1,6 +1,4 @@
 #lang typed/racket/base
-(require "src/micro.rkt"
-         "src/mini.rkt")
+(require "src/first-order-micro.rkt")
 
-(provide (all-from-out "src/micro.rkt"
-                       "src/mini.rkt"))
+(provide (all-from-out "src/first-order-micro.rkt"))

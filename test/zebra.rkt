@@ -1,10 +1,10 @@
 #lang typed/racket/base
 (require "../main.rkt")
 
-(: nullo : Any -> Goal)
+(: nullo : Term -> Goal)
 (define (nullo x) (== '() x))
 
-(: membo : Any Any -> Goal)
+(: membo : Term Term -> Goal)
 (define membo
   (lambda (elt ls)
     (fresh (d a)
@@ -13,7 +13,7 @@
         ((== (cons elt d) ls))
         ((== (cons a d) ls) (membo elt d))))))
 
-(: on-righto : Any Any Any -> Goal)
+(: on-righto : Term Term Term -> Goal)
 (define on-righto
   (lambda (e1 e2 ls)
     (fresh (d a r)
@@ -23,7 +23,7 @@
         ((== (cons e1 d) ls) (== (cons e2 r) d))
         ((== (cons a d) ls) (on-righto e1 e2 d))))))
 
-(: next-too : Any Any Any -> Goal)
+(: next-too : Term Term Term -> Goal)
 (define next-too
   (lambda (e1 e2 ls)
     (conde
@@ -32,7 +32,7 @@
 
 (define zebrao
   (lambda ()
-    (run* (h)
+    (run* h
       (fresh (a1 a2 a3 a4 a5
                  b1 b2 b3 b4 b5
                  c1 c2 c3 c4 c5

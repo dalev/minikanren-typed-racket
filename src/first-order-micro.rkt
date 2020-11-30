@@ -5,6 +5,11 @@
   conde
   conj
   disj
+  fail
+  run*
+
+  Term
+  Goal
 
   step-goal
   step-stream)
@@ -77,6 +82,8 @@
     ['() stream]
     [(cons _1 _2) stream]))
 
+(define fail (== 0 1))
+
 (define-syntax fresh
   (syntax-rules ()
     [(_ (x ...) g0 g ...)
@@ -120,6 +127,24 @@
     [(cons fst snd) (cons fst (stream->list snd))]
     [_ (stream->list (step-stream s))]))
 
+(: reify : Term State -> Term)
+(define (reify term state) 
+  (let ([subst (State-subst state)])
+    (walk* term subst)))
+
+(define-syntax run*
+  (syntax-rules ()
+    [(_ (x ...) g0 g ...)
+     (run* q (fresh (x ...) 
+               (== q (list x ...)) 
+               g0 g ...))]
+    [(_ q g0 g ...)
+     (let* ([goal : Goal (fresh (q) g0 g ...)]
+            [stream : Stream (step-goal *initial-state* goal)])
+       (let ([q (var 0)])
+         (map (lambda ({s : State}) : Term (reify q s)) 
+              (stream->list stream))))]))
+
 (module+ test
   (require typed/rackunit)
   (define-relation (append xs ys zs)
@@ -129,15 +154,11 @@
           (== (cons x xs*) xs)
           (== zs (cons x tmp))
           (append xs* ys tmp))]))
-  (let* ([goal (fresh (xs ys) (append xs ys '(1 2 3)))]
-         [str (step-goal *initial-state* goal)])
-    (check-equal?
-      (length (stream->list str))
-      ;; '(1 2 3) '()
-      ;; '(1 2) '(3)
-      ;; '(1) '(2 3)
-      ;; '() '(1 2 3)
-      4)))
-
-
-
+    (let ([ts (run* (xs ys) (append xs ys '(1 2 3)))])
+      (check-equal?
+        ts
+        (list
+          (list '() '(1 2 3))
+          (list '(1) '(2 3))
+          (list '(1 2) '(3))
+          (list '(1 2 3) '())))))
