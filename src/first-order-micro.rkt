@@ -72,6 +72,8 @@
     [(Mplus lhs rhs) 
        (match lhs
          ['() rhs]
+         [(cons lhs-fst '())
+          (cons lhs-fst rhs)]
          [(cons lhs-fst lhs-snd)
           (cons lhs-fst (Mplus rhs lhs-snd))]
          [_ (Mplus rhs (step-stream lhs))])]
