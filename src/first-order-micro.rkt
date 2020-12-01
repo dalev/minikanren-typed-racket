@@ -67,9 +67,8 @@
        [(cons fst snd)
         (Mplus (Pause fst g)
                (Bind snd g))]
-       [(Bind s* g*)
-        (Bind s* (Conj2 g* g))]
-       [_ (Bind (step-stream s) g)])]
+       [_
+        (Bind (step-stream s) g)])]
     [(Mplus lhs rhs) 
        (match lhs
          ['() rhs]
