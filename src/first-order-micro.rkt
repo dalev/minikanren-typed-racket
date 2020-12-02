@@ -18,18 +18,37 @@
 
 (define *initial-state* (State subst-empty))
 
+(define-type (FK o) (-> o))
+(define-type (SK o a) (-> a (FK o) o))
+(define-type (T a)
+  (All (o) (-> (SK o a) (FK o) o)))
+
+(: unit : (All (a) (-> a (T a))))
+(define (unit x)
+  (lambda (k f) 
+    (k x f)))
+
+(: bind : (All (a b) (-> (T a) (-> a (T b)) (T b))))
+(define #:forall (a b) bind 
+  (lambda ({t : (T a)} g)
+    (lambda #:forall (o) ({k : (SK o b)} {f : (FK o)})
+      (t (lambda ({x : a} {f : (FK o)}) 
+           ((g x) k f))
+         f))))
+
+(: mzero : (All (a) (T a)))
+(define mzero (lambda (_k f) (f)))
+
+(: mplus : (All (a) (-> (T a) (T a) (T a))))
+(define (mplus lhs rhs)
+  (lambda (k f)
+    (lhs k (lambda () (rhs k f)))))
+
 (define-type Goal (U Disj2 Conj2 == Call-with-state))
 
 (define-type Stream (U Bind Mplus Pause
                        Null
                        (Pair State Stream)))
-
-(: stream-ready? : Stream -> Boolean)
-(define (stream-ready? s)
-  (match s
-    ['() #t]
-    [(cons _1 _2) #t]
-    [_ #f]))
 
 (struct Disj2 [{lhs : Goal} {rhs : Goal}] #:transparent)
 (struct Conj2 [{lhs : Goal} {rhs : Goal}] #:transparent)
