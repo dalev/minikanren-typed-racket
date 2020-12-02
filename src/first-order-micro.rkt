@@ -56,31 +56,76 @@
     [(Call-with-state f)
      (f state)]))
 
-(: step-stream : Stream -> Stream)
-(define (step-stream stream)
+(: step-stream-cps : (All (t) (-> Stream t) Stream -> t))
+(define (step-stream-cps k stream)
   (match stream
     [(Bind s g) 
      (match s 
-       ['() '()]
+       ['() (k '())]
        [(cons fst '())
-        (Pause fst g)]
+        (k (Pause fst g))]
        [(cons fst snd)
-        (Mplus (Pause fst g)
-               (Bind snd g))]
-       [_
-        (Bind (step-stream s) g)])]
+        (k (Mplus (Pause fst g)
+                  (Bind snd g)))]
+       [_ (step-stream-cps (lambda ({v : Stream}) (k (Bind v g))) s)])]
     [(Mplus lhs rhs) 
        (match lhs
-         ['() rhs]
+         ['() (k rhs)]
          [(cons lhs-fst '())
-          (cons lhs-fst rhs)]
+          (k (cons lhs-fst rhs))]
          [(cons lhs-fst lhs-snd)
-          (cons lhs-fst (Mplus rhs lhs-snd))]
-         [_ (Mplus rhs (step-stream lhs))])]
-    [(Pause state goal) (step-goal state goal)]
+          (k (cons lhs-fst (Mplus rhs lhs-snd)))]
+         [_ 
+           (step-stream-cps (lambda ({lhs* : Stream}) (k (Mplus rhs lhs*))) lhs)])]
+    [(Pause state goal) (k (step-goal state goal))]
     [(or (? null?) 
          (? pair?)) 
-     stream]))
+     (k stream)]))
+
+(define-type Context (U Init-k Bind-k Mplus-k))
+(struct Init-k [] #:transparent)
+(struct Bind-k [{ctx : Context} {goal : Goal}] #:transparent)
+(struct Mplus-k [{ctx : Context} {rhs : Stream}] #:transparent)
+
+(: apply-context : Context Stream -> Stream)
+(define (apply-context k s)
+  (match k
+    [(Init-k) s]
+    [(Bind-k k* goal) 
+     (apply-context k* (Bind s goal))]
+    [(Mplus-k k* rhs) 
+     (apply-context k* (Mplus rhs s))]))
+
+(: step-stream : (Context Stream -> Stream))
+(define (step-stream k stream)
+  (match stream
+    [(Bind s g) 
+     (match s 
+       ['() (apply-context k '())]
+       [(cons fst '())
+        (apply-context k (Pause fst g))]
+       [(cons fst snd)
+        (apply-context k (Mplus (Pause fst g)
+                                (Bind snd g)))]
+       [_ (step-stream
+            (Bind-k k g)
+            s)])]
+    [(Mplus lhs rhs) 
+       (match lhs
+         ['() (apply-context k rhs)]
+         [(cons lhs-fst '())
+          (apply-context k (cons lhs-fst rhs))]
+         [(cons lhs-fst lhs-snd)
+          (apply-context k (cons lhs-fst (Mplus rhs lhs-snd)))]
+         [_ 
+           (step-stream
+             (Mplus-k k rhs)
+             lhs)])]
+    [(Pause state goal) 
+     (apply-context k (step-goal state goal))]
+    [(or (? null?) 
+         (? pair?)) 
+     (apply-context k stream)]))
 
 (define fail (== 0 1))
 
@@ -125,7 +170,7 @@
   (match s
     ['() '()]
     [(cons fst snd) (cons fst (stream->list snd))]
-    [_ (stream->list (step-stream s))]))
+    [_ (stream->list (step-stream (Init-k) s))]))
 
 (: reify : Term State -> Term)
 (define (reify term state) 
