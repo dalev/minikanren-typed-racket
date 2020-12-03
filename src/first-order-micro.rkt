@@ -49,7 +49,7 @@
   (lambda #:forall (a) ({t : (T a)})
     (define-type Obs (Option (Pair a (T a))))
     (: ssk : (SK (T Obs) a))
-    (define (ssk v fk)
+    (define (ssk v {fk : (FK (T Obs))})
       (lambda (a b)
         (a (cons
             v 
