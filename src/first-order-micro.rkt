@@ -44,36 +44,39 @@
   (lambda (k f)
     (lhs k (lambda () (rhs k f)))))
 
-(: msplit : (All (a) (-> (T a) (T (Pair a (T a))))))
+(: msplit : (All (a) (-> (T a) (T (Option (Pair a (T a)))))))
 (define msplit 
   (lambda #:forall (a) ({t : (T a)})
-    (define-type Obs (T (Pair a (T a))))
-    (: ssk : (SK Obs a))
+    (define-type Obs (Option (Pair a (T a))))
+    (: ssk : (SK (T Obs) a))
     (define (ssk v fk)
       (lambda (a b)
         (a (cons
             v 
             (lambda #:forall (o) ({s* : (SK o a)} {f* : (FK o)})
               ((fk)
-               (lambda ({pair : (Pair a (T a))} _) 
-                 (match-define (cons v** x) pair)
-                 (s* v** 
-                     (lambda () (x s* f*))))
+               (lambda ({obs : Obs} {h : (FK o)}) 
+                 (match obs
+                   [#f (h)]
+                   [(cons v** x)
+                    (s* v** (lambda () (x s* f*)))]))
                f*)))
            (lambda () (b)))))
-    (: ffk : (FK Obs))
-    (define (ffk) (lambda (_ f) (f)))
+    (: ffk : (FK (T Obs)))
+    (define (ffk) (lambda (k f) (k #f f)))
     (t ssk ffk)))
 
 (: interleave : (All (a) (T a) (T a) -> (T a)))
 (define (interleave lhs rhs)
-  ((inst bind (Pair a (T a)) a)
+  ((inst bind (Option (Pair a (T a))) a)
    ((inst msplit a) lhs)
-   (lambda ({pair : (Pair a (T a))})
-     (match-define (cons lhs-fst lhs-rest) pair)
-     ((inst mplus a) 
-      ((inst unit a) lhs-fst)
-      ((inst interleave a) rhs lhs-rest)))))
+   (lambda ({obs : (Option (Pair a (T a)))})
+     (match obs
+       [#f rhs]
+       [(cons lhs-fst lhs-rest)
+        ((inst mplus a) 
+         ((inst unit a) lhs-fst)
+         ((inst interleave a) rhs lhs-rest))]))))
 
 (define-type Goal (U Disj2 Conj2 == Call-with-state))
 
@@ -149,8 +152,11 @@
 (: stream->list : (All (a) (-> (T a) (Listof a))))
 (define (stream->list s)
   (((inst msplit a) s) 
-   (lambda ({pair : (Pair a (T a))} _) 
-     (cons (car pair) ((inst stream->list a) (cdr pair))))
+   (lambda ({obs : (Option (Pair a (T a)))} _) 
+     (match obs
+       [#f null]
+       [(cons fst snd)
+        (cons fst ((inst stream->list a) snd))]))
    (lambda () null)))
 
 (define state-stream->list (inst stream->list State))
@@ -179,11 +185,12 @@
          [mplus (inst mplus Integer)]
          [interleave (inst interleave Integer)]
          [mzero (inst mzero Integer)]
-         [stream->list (inst stream->list Integer)]
-         [s : (T Integer) 
-           (interleave mzero (mplus (unit 1) (mplus (unit 2) (unit 3))))])
+         [stream->list (inst stream->list Integer)])
     (check-equal? 
-      (stream->list s)
+      (stream->list (interleave mzero (mplus (unit 1) (mplus (unit 2) (unit 3)))))
+      (list 1 2 3))
+    (check-equal? 
+      (stream->list (interleave (mplus (unit 1) (mplus (unit 2) (unit 3))) mzero))
       (list 1 2 3)))
   (define-relation (append xs ys zs)
      (conde 
