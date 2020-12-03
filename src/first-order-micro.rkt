@@ -61,7 +61,7 @@
                    [(cons v** x)
                     (s* v** (lambda () (x s* f*)))]))
                f*)))
-           (lambda () (b)))))
+           b)))
     (: ffk : (FK (T Obs)))
     (define (ffk) (lambda (k f) (k #f f)))
     (t ssk ffk)))
