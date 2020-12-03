@@ -77,9 +77,7 @@
 
 (define-type Goal (U Disj2 Conj2 == Call-with-state))
 
-(define-type Stream (U Bind Mplus Pause
-                       Null
-                       (Pair State Stream)))
+(define-type Stream (T State))
 
 (struct Disj2 [{lhs : Goal} {rhs : Goal}] #:transparent)
 (struct Conj2 [{lhs : Goal} {rhs : Goal}] #:transparent)
@@ -90,92 +88,25 @@
 (struct Mplus [{lhs : Stream} {rhs : Stream}] #:transparent)
 (struct Pause [{state : State} {goal : Goal}] #:transparent)
 
-(: step-goal : State Goal -> Stream)
-(define (step-goal state goal)
+(: goal->stream : State Goal -> Stream)
+(define (goal->stream state goal)
   (match goal
-    [(Disj2 lhs rhs) (Mplus (Pause state lhs)
-                            (Pause state rhs))]
-    [(Conj2 lhs rhs) (Bind (Pause state lhs)
-                           rhs)]
+    [(Disj2 lhs rhs) 
+     ((inst mplus State)
+      (goal->stream state lhs)
+      (goal->stream state rhs))]
+    [(Conj2 lhs rhs) 
+     ((inst bind State State)
+      (goal->stream state lhs)
+      (lambda ({st : State}) (goal->stream st rhs)))]
     [(== lhs rhs) 
      (match-define (State subst) state)
      (let ([subst* (unify lhs rhs subst)])
        (if subst*
-         (cons (State subst*) '())
-         '()))]
+         ((inst unit State) (State subst*))
+         (inst mzero State)))]
     [(Call-with-state f)
      (f state)]))
-
-(: step-stream-cps : (All (t) (-> Stream t) Stream -> t))
-(define (step-stream-cps k stream)
-  (match stream
-    [(Bind s g) 
-     (match s 
-       ['() (k '())]
-       [(cons fst '())
-        (k (Pause fst g))]
-       [(cons fst snd)
-        (k (Mplus (Pause fst g)
-                  (Bind snd g)))]
-       [_ (step-stream-cps (lambda ({v : Stream}) (k (Bind v g))) s)])]
-    [(Mplus lhs rhs) 
-       (match lhs
-         ['() (k rhs)]
-         [(cons lhs-fst '())
-          (k (cons lhs-fst rhs))]
-         [(cons lhs-fst lhs-snd)
-          (k (cons lhs-fst (Mplus rhs lhs-snd)))]
-         [_ 
-           (step-stream-cps (lambda ({lhs* : Stream}) (k (Mplus rhs lhs*))) lhs)])]
-    [(Pause state goal) (k (step-goal state goal))]
-    [(or (? null?) 
-         (? pair?)) 
-     (k stream)]))
-
-(define-type Context (U Init-k Bind-k Mplus-k))
-(struct Init-k [] #:transparent)
-(struct Bind-k [{ctx : Context} {goal : Goal}] #:transparent)
-(struct Mplus-k [{ctx : Context} {rhs : Stream}] #:transparent)
-
-(: apply-context : Context Stream -> Stream)
-(define (apply-context k s)
-  (match k
-    [(Init-k) s]
-    [(Bind-k k* goal) 
-     (apply-context k* (Bind s goal))]
-    [(Mplus-k k* rhs) 
-     (apply-context k* (Mplus rhs s))]))
-
-(: step-stream : (Context Stream -> Stream))
-(define (step-stream k stream)
-  (match stream
-    [(Bind s g) 
-     (match s 
-       ['() (apply-context k '())]
-       [(cons fst '())
-        (apply-context k (Pause fst g))]
-       [(cons fst snd)
-        (apply-context k (Mplus (Pause fst g)
-                                (Bind snd g)))]
-       [_ (step-stream
-            (Bind-k k g)
-            s)])]
-    [(Mplus lhs rhs) 
-       (match lhs
-         ['() (apply-context k rhs)]
-         [(cons lhs-fst '())
-          (apply-context k (cons lhs-fst rhs))]
-         [(cons lhs-fst lhs-snd)
-          (apply-context k (cons lhs-fst (Mplus rhs lhs-snd)))]
-         [_ 
-           (step-stream
-             (Mplus-k k rhs)
-             lhs)])]
-    [(Pause state goal) 
-     (apply-context k (step-goal state goal))]
-    [(or (? null?) 
-         (? pair?)) 
-     (apply-context k stream)]))
 
 (define fail (== 0 1))
 
@@ -187,7 +118,7 @@
          (define sub (State-subst state))
          (let*-values ([{x sub} (subst-new-var sub)] 
                        ...) 
-           (Pause (State sub) (conj g0 g ...)))))]))
+           (goal->stream (State sub) (conj g0 g ...)))))]))
 
 (define-syntax conj
   (syntax-rules ()
@@ -217,10 +148,11 @@
 
 (: stream->list : Stream -> (Listof State))
 (define (stream->list s)
-  (match s
-    ['() '()]
-    [(cons fst snd) (cons fst (stream->list snd))]
-    [_ (stream->list (step-stream (Init-k) s))]))
+  (((inst msplit State) s) 
+   (lambda ({pair : (Pair State Stream)} _) 
+     (cons (car pair) (stream->list (cdr pair))))
+   (lambda () null)))
+
 
 (: reify : Term State -> Term)
 (define (reify term state) 
@@ -235,7 +167,7 @@
                g0 g ...))]
     [(_ q g0 g ...)
      (let* ([goal : Goal (fresh (q) g0 g ...)]
-            [stream : Stream (step-goal *initial-state* goal)])
+            [stream : Stream (goal->stream *initial-state* goal)])
        (let ([q (var 0)])
          (map (lambda ({s : State}) : Term (reify q s)) 
               (stream->list stream))))]))
