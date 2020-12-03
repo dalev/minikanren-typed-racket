@@ -44,6 +44,37 @@
   (lambda (k f)
     (lhs k (lambda () (rhs k f)))))
 
+(: msplit : (All (a) (-> (T a) (T (Pair a (T a))))))
+(define msplit 
+  (lambda #:forall (a) ({t : (T a)})
+    (define-type Obs (T (Pair a (T a))))
+    (: ssk : (SK Obs a))
+    (define (ssk v fk)
+      (lambda (a b)
+        (a (cons
+            v 
+            (lambda #:forall (o) ({s* : (SK o a)} {f* : (FK o)})
+              ((fk)
+               (lambda ({pair : (Pair a (T a))} _) 
+                 (match-define (cons v** x) pair)
+                 (s* v** 
+                     (lambda () (x s* f*))))
+               f*)))
+           (lambda () (b)))))
+    (: ffk : (FK Obs))
+    (define (ffk) (lambda (_ f) (f)))
+    (t ssk ffk)))
+
+(: interleave : (All (a) (T a) (T a) -> (T a)))
+(define (interleave lhs rhs)
+  ((inst bind (Pair a (T a)) a)
+   ((inst msplit a) lhs)
+   (lambda ({pair : (Pair a (T a))})
+     (match-define (cons lhs-fst lhs-rest) pair)
+     ((inst mplus a) 
+      ((inst unit a) lhs-fst)
+      ((inst interleave a) rhs lhs-rest)))))
+
 (define-type Goal (U Disj2 Conj2 == Call-with-state))
 
 (define-type Stream (U Bind Mplus Pause
