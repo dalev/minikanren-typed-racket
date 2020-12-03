@@ -92,7 +92,7 @@
 (define (goal->stream state goal)
   (match goal
     [(Disj2 lhs rhs) 
-     ((inst mplus State)
+     ((inst interleave State)
       (goal->stream state lhs)
       (goal->stream state rhs))]
     [(Conj2 lhs rhs) 
@@ -146,13 +146,14 @@
                (lambda (x ...)
                  (conj g0 g ...)))))))]))
 
-(: stream->list : Stream -> (Listof State))
+(: stream->list : (All (a) (-> (T a) (Listof a))))
 (define (stream->list s)
-  (((inst msplit State) s) 
-   (lambda ({pair : (Pair State Stream)} _) 
-     (cons (car pair) (stream->list (cdr pair))))
+  (((inst msplit a) s) 
+   (lambda ({pair : (Pair a (T a))} _) 
+     (cons (car pair) ((inst stream->list a) (cdr pair))))
    (lambda () null)))
 
+(define state-stream->list (inst stream->list State))
 
 (: reify : Term State -> Term)
 (define (reify term state) 
@@ -170,10 +171,20 @@
             [stream : Stream (goal->stream *initial-state* goal)])
        (let ([q (var 0)])
          (map (lambda ({s : State}) : Term (reify q s)) 
-              (stream->list stream))))]))
+              (state-stream->list stream))))]))
 
 (module+ test
   (require typed/rackunit)
+  (let* ([unit (inst unit Integer)]
+         [mplus (inst mplus Integer)]
+         [interleave (inst interleave Integer)]
+         [mzero (inst mzero Integer)]
+         [stream->list (inst stream->list Integer)]
+         [s : (T Integer) 
+           (interleave mzero (mplus (unit 1) (mplus (unit 2) (unit 3))))])
+    (check-equal? 
+      (stream->list s)
+      (list 1 2 3)))
   (define-relation (append xs ys zs)
      (conde 
        [(== xs '()) (== ys zs)]
