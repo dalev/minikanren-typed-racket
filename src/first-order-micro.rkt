@@ -20,8 +20,7 @@
 
 (define-type (FK o) (-> o))
 (define-type (SK o a) (-> a (FK o) o))
-(define-type (T a)
-  (All (o) (-> (SK o a) (FK o) o)))
+(define-type (T a) (All (o) (-> (SK o a) (FK o) o)))
 
 (: unit : (All (a) (-> a (T a))))
 (define (unit x)
@@ -86,10 +85,6 @@
 (struct Conj2 [{lhs : Goal} {rhs : Goal}] #:transparent)
 (struct Call-with-state [{fn : (-> State Stream)}] #:transparent)
 (struct == [{lhs : Term} {rhs : Term}] #:transparent)
-
-(struct Bind [{stream : Stream} {goal : Goal}] #:transparent)
-(struct Mplus [{lhs : Stream} {rhs : Stream}] #:transparent)
-(struct Pause [{state : State} {goal : Goal}] #:transparent)
 
 (: goal->stream : State Goal -> Stream)
 (define (goal->stream state goal)
