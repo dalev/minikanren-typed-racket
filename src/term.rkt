@@ -35,11 +35,6 @@
     (define v (var c))
     (values v (State (sbral-cons v sub)))))
 
-(: reify : Term State -> Term)
-(define (reify term state) 
-  (let ([subst (State-subst state)])
-    (walk* term subst)))
-
 (: unify : Term Term State -> (Option State))
 (define (unify u v s)
   (define subst
@@ -47,8 +42,8 @@
       (let ([u (walk u s)] [v (walk v s)])
         (cond
           [(and (var? u) (var? v) (var=? u v)) s]
-          [(var? u) (ext-s u v s)]
-          [(var? v) (ext-s v u s)]
+          [(var? u) (subst-set s u v)]
+          [(var? v) (subst-set s v u)]
           [(and (pair? u) (pair? v))
            (let ((s (loop (car u) (car v) s)))
              (and s (loop (cdr u) (cdr v) s)))]
@@ -72,7 +67,12 @@
                        (walk* (cdr v) s))]
       [else  v])))
 
-(: ext-s : var Term Subst -> Subst)
-(define (ext-s x v s) 
+(: reify : Term State -> Term)
+(define (reify term state) 
+  (let ([subst (State-subst state)])
+    (walk* term subst)))
+
+(: subst-set : Subst var Term -> Subst)
+(define (subst-set s x v) 
   (sbral-set s (var-index x) v))
 

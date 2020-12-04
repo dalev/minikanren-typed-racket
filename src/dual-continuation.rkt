@@ -11,18 +11,28 @@
   Term
   Goal)
 
+#| This module implements minikanren using a dual-continuation representation
+   of the backtracking monad.  It is an adaptation of Kiselyov et al's ICFP 2005
+   paper "Backtracking, Interleaving, and Terminating Monad Transformers".
+|#
+
 (require racket/match
          "term.rkt")
 
+;; (T a) represents a "stream of a" using a dual-contination encoding.
+;; As in the ICFP 2005 paper, our representation is fully polymorphic in
+;; the observation type.
 (define-type (FK o) (-> o))
 (define-type (SK o a) (-> a (FK o) o))
 (define-type (T a) (All (o) (-> (SK o a) (FK o) o)))
 
+;; Representation a computation that succeeds exactly once.
 (: unit : (All (a) (-> a (T a))))
 (define (unit x)
   (lambda (k f) 
     (k x f)))
 
+;; The standard "map-append" operation.
 (: bind : (All (a b) (-> (T a) (-> a (T b)) (T b))))
 (define #:forall (a b) bind 
   (lambda ({t : (T a)} g)
@@ -31,9 +41,12 @@
            ((g x) k f))
          f))))
 
+;; A computation with no results.
 (: mzero : (All (a) (T a)))
 (define mzero (lambda (_k f) (f)))
 
+;; A representatin of the "append" of the two given streams.
+;; This implementation is not fair: it produces answers left-to-right.
 (: mplus : (All (a) (-> (T a) (T a) (T a))))
 (define (mplus lhs rhs)
   (lambda (k f)
@@ -41,6 +54,13 @@
 
 (define-type (Opt-Split a) (Option (Pair a (T a))))
 
+;; `msplit` is the essential bit of cleverness from the ICFP 2005 paper:
+;; it shows how to split a `(T a)` into a "first" and a "rest", without having to
+;; fully observe the entire rest of the stream.  The trick is to observe the 
+;; given value `t` at the concrete type (Opt-Split a) (by choosing appropriate 
+;; success and failure continuations, called `ssk` and `ffk` below).
+;; If `ssk` observes `t`, then it uses a further inversion of control
+;; recover the fully-polymorphic answer type.
 (: msplit : (All (a) (-> (T a) (T (Opt-Split a)))))
 (define msplit 
   (lambda #:forall (a) ({t : (T a)})
