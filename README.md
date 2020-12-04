@@ -9,7 +9,7 @@ This is a relatively bare-bones version of miniKanren implemented in Typed Racke
 - `succeed`
 - `(== term0 term1)`
 
-where
+where terms are given by the type:
 ```
 (define-type Term 
   (U var
