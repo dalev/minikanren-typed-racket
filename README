@@ -1,12 +1,6 @@
-The code in this directory is a port of Kiselyov et al's Kanren logic
-programming system [1].  I've also integrated the results of Bender, Kuper, et
-al [2] on efficient substition representations.
+This is an implementation of miniKanren in Typed Racket. 
 
-I've taken the liberty of lightly editing the original code to make it fit
-better into standard Racket style.  And I also extended the unification
-procedure to handle more built-in Racket datatypes.  Some of that code (e.g.
-for unifying arbitrary structures) was lifted from Racket's racklog library.
+The internal representation is an adaptation of the dual-continuation 
+backtracking monad described by Kiselyov et al. in their ICFP 2005 paper (Backtracking, Interleaving, and Terminating Monad Transformers)[http://homes.sice.indiana.edu/ccshan/logicprog/LogicT-icfp2005.pdf].
 
-[1] http://kanren.sourceforge.net/
-[2] Efficient representations for triangular substitutions. 
-    https://www.cs.indiana.edu/~lkuper/papers/walk.pdf
+We represent the substitution using a skew binary random access list, as described in (Efficient Representations for Triangular Substitutions)[https://www.researchgate.net/publication/238089215_Efficient_representations_for_triangular_substitutions_A_comparison_in_miniKanren].
