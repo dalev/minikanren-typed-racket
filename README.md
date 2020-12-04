@@ -1,4 +1,23 @@
-This is a relatively bare-bones version of miniKanren implemented in Typed Racket.  The only constraint currently supported is unification (==), though =/= is planned.
+This is a relatively bare-bones version of miniKanren implemented in Typed Racket.  The only constraint currently supported is unification (`==`).  To build goals, we support 
+- `(fresh (x ...) goal0 goal ...)`
+- `(conj goal0 goal ...)`
+- `(disj goal0 goal...)`
+- `(conde [(goal0 goal ...) ...])`
+- `(ifte g0 g1 g2)`
+- `(once g)`
+- `fail`
+- `succeed`
+- `(== term0 term1)`
+
+where
+```
+(define-type Term 
+  (U var
+     Number
+     Symbol
+     Null 
+     (Pair Term Term)))
+```
 
 This implementation can only be imported by other _Typed_ Racket modules due to 
 [restrictions](https://docs.racket-lang.org/ts-guide/caveats.html#%28part._.Macros_and_compile-time_computation%29)

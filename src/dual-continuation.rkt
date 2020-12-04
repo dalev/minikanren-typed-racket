@@ -1,4 +1,9 @@
 #lang typed/racket
+#| 
+This module implements minikanren using a dual-continuation representation
+of the backtracking monad.  It is an adaptation of Kiselyov et al's ICFP 2005
+paper "Backtracking, Interleaving, and Terminating Monad Transformers".
+|#
 (provide
   run*
   fresh
@@ -15,11 +20,6 @@
 
   Term
   Goal)
-
-#| This module implements minikanren using a dual-continuation representation
-   of the backtracking monad.  It is an adaptation of Kiselyov et al's ICFP 2005
-   paper "Backtracking, Interleaving, and Terminating Monad Transformers".
-|#
 
 (require racket/match
          "term.rkt")

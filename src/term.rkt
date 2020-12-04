@@ -14,10 +14,12 @@
 (: var=? : var var -> Boolean)
 (define (var=? x y) (= (var-index x) (var-index y)))
 
-(define-type Term (U var
-                     Null (Pair Term Term)
-                     Number
-                     Symbol))
+(define-type Term 
+  (U var
+     Number
+     Symbol
+     Null 
+     (Pair Term Term)))
 
 (define-type Subst (sbral Term))
 
