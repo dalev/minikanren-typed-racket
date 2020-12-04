@@ -1,5 +1,4 @@
-This is a relatively bare-bones version of miniKanren implemented in Typed Racket.  
-The only constraint currently supported is unification (`==`).  
+This is a relatively bare-bones version of miniKanren implemented in Typed Racket.  The only constraint currently supported is unification (`==`).  
 To build goals, we support:
 - `(fresh (x ...) goal0 goal ...)`
 - `(conj goal0 goal ...)`
