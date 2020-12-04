@@ -14,10 +14,6 @@
 (require racket/match
          "term.rkt")
 
-(struct State [{subst : Subst}] #:transparent)
-
-(define *initial-state* (State subst-empty))
-
 (define-type (FK o) (-> o))
 (define-type (SK o a) (-> a (FK o) o))
 (define-type (T a) (All (o) (-> (SK o a) (FK o) o)))
@@ -104,20 +100,18 @@
   (syntax-rules ()
     [(_ (x ...) g0 g ...)
      (lambda ({state : State})
-       (define sub (State-subst state))
-       (let*-values ([{x sub} (subst-new-var sub)] 
+       (let*-values ([{x state} (state-new-var state)] 
                      ...) 
-         (goal->stream (State sub) (conj g0 g ...))))]))
+         (goal->stream state (conj g0 g ...))))]))
 
 (define-syntax ==
   (syntax-rules ()
     [(_ lhs rhs)
      (lambda ({st : State})
-       (let ([sub (State-subst st)])
-         (let ([sub (unify lhs rhs sub)])
-           (if sub
-             ((inst unit State) (State sub))
-             (inst mzero State)))))]))
+       (let ([st (unify lhs rhs st)])
+         (if st
+           ((inst unit State) st)
+           (inst mzero State))))]))
 
 (define-syntax conj
   (syntax-rules ()
@@ -166,11 +160,6 @@
 
 (define state-stream->list (inst stream->list State))
 
-(: reify : Term State -> Term)
-(define (reify term state) 
-  (let ([subst (State-subst state)])
-    (walk* term subst)))
-
 (define-syntax run*
   (syntax-rules ()
     [(_ (x ...) g0 g ...)
@@ -179,7 +168,7 @@
                g0 g ...))]
     [(_ q g0 g ...)
      (let* ([goal : Goal (fresh (q) g0 g ...)]
-            [stream : Stream (goal->stream *initial-state* goal)])
+            [stream : Stream (goal->stream (state-empty) goal)])
        (let ([q (var 0)])
          (map (lambda ({s : State}) : Term (reify q s)) 
               (state-stream->list stream))))]))

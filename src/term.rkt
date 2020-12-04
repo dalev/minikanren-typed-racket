@@ -1,12 +1,11 @@
 #lang typed/racket/base
 (provide Term
-         Subst
+         State
+         state-empty
          (struct-out var)
-         subst-new-var
-         subst-empty
+         state-new-var
          unify
-         walk
-         walk*)
+         reify)
 
 (require "skew-bral.rkt")
 
@@ -22,25 +21,39 @@
 
 (define-type Subst (sbral Term))
 
+(struct State [{subst : Subst}] #:transparent)
+
+(: state-empty : -> State)
+(define (state-empty) (State subst-empty))
+
 (define subst-empty sbral-empty)
 
-(: subst-new-var : Subst -> (Values var Subst))
-(define (subst-new-var sub)
+(: state-new-var : State -> (Values var State))
+(define (state-new-var s)
+  (define sub (State-subst s))
   (let ([c (sbral-size sub)])
     (define v (var c))
-    (values v (sbral-cons v sub))))
+    (values v (State (sbral-cons v sub)))))
 
-(: unify : Term Term Subst -> (Option Subst))
+(: reify : Term State -> Term)
+(define (reify term state) 
+  (let ([subst (State-subst state)])
+    (walk* term subst)))
+
+(: unify : Term Term State -> (Option State))
 (define (unify u v s)
-  (let ([u (walk u s)] [v (walk v s)])
-    (cond
-      [(and (var? u) (var? v) (var=? u v)) s]
-      [(var? u) (ext-s u v s)]
-      [(var? v) (ext-s v u s)]
-      [(and (pair? u) (pair? v))
-       (let ((s (unify (car u) (car v) s)))
-         (and s (unify (cdr u) (cdr v) s)))]
-      [else (and (eqv? u v) s)])))
+  (define subst
+    (let loop : (Option Subst) ([u u] [v v] [s (State-subst s)])
+      (let ([u (walk u s)] [v (walk v s)])
+        (cond
+          [(and (var? u) (var? v) (var=? u v)) s]
+          [(var? u) (ext-s u v s)]
+          [(var? v) (ext-s v u s)]
+          [(and (pair? u) (pair? v))
+           (let ((s (loop (car u) (car v) s)))
+             (and s (loop (cdr u) (cdr v) s)))]
+          [else (and (eqv? u v) s)]))))
+  (and subst (State subst)))
 
 (: walk : Term Subst -> Term)
 (define (walk u s)

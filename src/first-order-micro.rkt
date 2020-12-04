@@ -14,10 +14,6 @@
 (require racket/match
          "term.rkt")
 
-(struct State [{subst : Subst}] #:transparent)
-
-(define *initial-state* (State subst-empty))
-
 (define-type Goal (U Disj2 Conj2 == Call-with-state))
 
 (define-type Stream (U Bind Mplus Pause
@@ -48,10 +44,9 @@
     [(Conj2 lhs rhs) (Bind (Pause state lhs)
                            rhs)]
     [(== lhs rhs) 
-     (match-define (State subst) state)
-     (let ([subst* (unify lhs rhs subst)])
-       (if subst*
-         (cons (State subst*) '())
+     (let ([state (unify lhs rhs state)])
+       (if state
+         (cons state '())
          '()))]
     [(Call-with-state f)
      (f state)]))
@@ -89,10 +84,9 @@
     [(_ (x ...) g0 g ...)
      (Call-with-state
        (lambda ({state : State})
-         (define sub (State-subst state))
-         (let*-values ([{x sub} (subst-new-var sub)] 
+         (let*-values ([{x state} (state-new-var state)] 
                        ...) 
-           (Pause (State sub) (conj g0 g ...)))))]))
+           (Pause state (conj g0 g ...)))))]))
 
 (define-syntax conj
   (syntax-rules ()
@@ -127,11 +121,6 @@
     [(cons fst snd) (cons fst (stream->list snd))]
     [_ (stream->list (step-stream s))]))
 
-(: reify : Term State -> Term)
-(define (reify term state) 
-  (let ([subst (State-subst state)])
-    (walk* term subst)))
-
 (define-syntax run*
   (syntax-rules ()
     [(_ (x ...) g0 g ...)
@@ -140,7 +129,7 @@
                g0 g ...))]
     [(_ q g0 g ...)
      (let* ([goal : Goal (fresh (q) g0 g ...)]
-            [stream : Stream (step-goal *initial-state* goal)])
+            [stream : Stream (step-goal (state-empty) goal)])
        (let ([q (var 0)])
          (map (lambda ({s : State}) : Term (reify q s)) 
               (stream->list stream))))]))
