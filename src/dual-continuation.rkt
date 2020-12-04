@@ -121,8 +121,12 @@ paper "Backtracking, Interleaving, and Terminating Monad Transformers".
      (match obs
        [#f altern]
        [(cons fst snd) 
-        ;; ICFP paper uses non-interleaving here...
-        ((inst mplus b) (conseq fst) ((inst bind a b) snd conseq))]))))
+        ;; The ICFP paper uses `mplus` and `bind`, but I think that
+        ;; `interleave` and `bind/fair` are more in the spirit of
+        ;; miniKanren.
+        ((inst interleave b) 
+         (conseq fst) 
+         ((inst bind/fair a b) snd conseq))]))))
 
 ;; Prune all but the first answer
 (: m-once : (All (a) (-> (T a) (T a))))
