@@ -6,6 +6,11 @@
   conde
   conj
   disj
+
+  ifte
+  once
+
+  succeed
   fail
 
   Term
@@ -107,6 +112,29 @@
        [(cons fst rest)
         ((inst interleave b) (g fst) ((inst bind/fair a b) rest g))]))))
 
+;; Soft-cut conditional
+(: m-ifte : (All (a b) (-> (T a) (-> a (T b)) (T b) (T b))))
+(define (m-ifte test conseq altern)
+  ((inst bind (Opt-Split a) b) 
+   ((inst msplit a) test)
+   (lambda ({obs : (Opt-Split a)})
+     (match obs
+       [#f altern]
+       [(cons fst snd) 
+        ;; ICFP paper uses non-interleaving here...
+        ((inst mplus b) (conseq fst) ((inst bind a b) snd conseq))]))))
+
+;; Prune all but the first answer
+(: m-once : (All (a) (-> (T a) (T a))))
+(define (m-once t)
+  ((inst bind (Opt-Split a) a) 
+   ((inst msplit a) t)
+   (lambda ({obs : (Opt-Split a)})
+     (match obs
+       [#f (inst mzero a)]
+       [(cons fst _)
+        ((inst unit a) fst)]))))
+
 (define-type Goal (-> State Stream))
 
 (define-type Stream (T State))
@@ -115,7 +143,26 @@
 (define (goal->stream state goal)
   (goal state))
 
-(define fail (== 0 1))
+(: fail : Goal)
+(define fail (lambda ({_ : State}) (inst mzero State)))
+
+(: succeed : Goal)
+(define succeed (lambda ({s : State}) ((inst unit State) s)))
+
+(define-syntax ifte
+  (syntax-rules ()
+    [(_ test conseq altern)
+     (lambda ({state : State})
+       ((inst m-ifte State State)
+        (goal->stream state test)
+        (lambda ({state : State}) (goal->stream state conseq))
+        (goal->stream state altern)))]))
+
+(define-syntax once
+  (syntax-rules ()
+    [(_ goal)
+     (lambda ({state : State})
+       ((inst m-once State) (goal->stream state goal)))]))
 
 (define-syntax fresh
   (syntax-rules ()
@@ -224,4 +271,20 @@
         (list '() '(1 2 3))
         (list '(1) '(2 3))
         (list '(1 2) '(3))
-        (list '(1 2 3) '())))))
+        (list '(1 2 3) '()))))
+
+  (define-relation (first-mem x xs)
+    (fresh (hd tl)
+      (== (cons hd tl) xs)
+      (ifte (== hd x)
+        succeed
+        (first-mem x tl))))
+
+  (check-equal? (run* q (first-mem q '(a b c)))
+                (list 'a))
+
+  (check-equal? (run* q (first-mem 'c '(a b c)) (== q 'yes))
+                (list 'yes))
+
+  (check-equal? (run* (xs ys) (once (append xs ys '(1 2 3))))
+                (list (list '() '(1 2 3)))))
