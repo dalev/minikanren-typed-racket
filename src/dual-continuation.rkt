@@ -222,7 +222,7 @@ paper "Backtracking, Interleaving, and Terminating Monad Transformers".
 
 (: stream->list : (All (a) (-> (Option Integer) (T a) (Listof a))))
 (define (stream->list n s)
-  (if (and n (zero? n))
+  (if (and n (<= n 0))
     '()
     (((inst msplit a) s) 
      (lambda ({obs : (Opt-Split a)} _) 
