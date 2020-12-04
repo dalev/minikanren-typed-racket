@@ -1,4 +1,6 @@
-This is a relatively bare-bones version of miniKanren implemented in Typed Racket.  The only constraint currently supported is unification (`==`).  To build goals, we support 
+This is a relatively bare-bones version of miniKanren implemented in Typed Racket.  
+The only constraint currently supported is unification (`==`).  
+To build goals, we support:
 - `(fresh (x ...) goal0 goal ...)`
 - `(conj goal0 goal ...)`
 - `(disj goal0 goal...)`
@@ -18,8 +20,11 @@ where terms are given by the type:
      Null 
      (Pair Term Term)))
 ```
+To obtain a list of solutions, use:
+- `(run* x goal0 goal ...)` 
+- `(run* (x ...) goal0 goal ...)`
 
-This implementation can only be imported by other _Typed_ Racket modules due to 
+This implementation can only be used by other _Typed_ Racket modules due to 
 [restrictions](https://docs.racket-lang.org/ts-guide/caveats.html#%28part._.Macros_and_compile-time_computation%29)
 on how macros exported from typed modules can be used.
 
