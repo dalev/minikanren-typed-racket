@@ -3,7 +3,7 @@ To build goals, we support:
 - `(fresh (x ...) goal0 goal ...)`
 - `(conj goal0 goal ...)`
 - `(disj goal0 goal...)`
-- `(conde [(goal0 goal ...) ...])`
+- `(conde ([goal0 goal ...] ...))`
 - `(ifte g0 g1 g2)`
 - `(once g)`
 - `fail`
