@@ -1,4 +1,4 @@
 #lang info
 (define version "0.1")
-(define name "racket port of kanren")
-(define collection 'use-pkg-name)
+(define name "typed racket port of minikanren")
+(define collection "typed-minikanren")
