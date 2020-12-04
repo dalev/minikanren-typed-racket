@@ -18,93 +18,69 @@
 
 (define *initial-state* (State subst-empty))
 
-(define-type (FK o) (-> o))
-(define-type (SK o a) (-> a (FK o) o))
-(define-type (T a) (All (o) (-> (SK o a) (FK o) o)))
-
-(: unit : (All (a) (-> a (T a))))
-(define (unit x)
-  (lambda (k f) 
-    (k x f)))
-
-(: bind : (All (a b) (-> (T a) (-> a (T b)) (T b))))
-(define #:forall (a b) bind 
-  (lambda ({t : (T a)} g)
-    (lambda #:forall (o) ({k : (SK o b)} {f : (FK o)})
-      (t (lambda ({x : a} {f : (FK o)}) 
-           ((g x) k f))
-         f))))
-
-(: mzero : (All (a) (T a)))
-(define mzero (lambda (_k f) (f)))
-
-(: mplus : (All (a) (-> (T a) (T a) (T a))))
-(define (mplus lhs rhs)
-  (lambda (k f)
-    (lhs k (lambda () (rhs k f)))))
-
-(: msplit : (All (a) (-> (T a) (T (Option (Pair a (T a)))))))
-(define msplit 
-  (lambda #:forall (a) ({t : (T a)})
-    (define-type Obs (Option (Pair a (T a))))
-    (: ssk : (SK (T Obs) a))
-    (define (ssk v {fk : (FK (T Obs))})
-      (lambda (a b)
-        (a (cons
-            v 
-            (lambda #:forall (o) ({s* : (SK o a)} {f* : (FK o)})
-              ((fk)
-               (lambda ({obs : Obs} {h : (FK o)}) 
-                 (match obs
-                   [#f (h)]
-                   [(cons v** x)
-                    (s* v** (lambda () (x s* f*)))]))
-               f*)))
-           b)))
-    (: ffk : (FK (T Obs)))
-    (define (ffk) (lambda (k f) (k #f f)))
-    (t ssk ffk)))
-
-(: interleave : (All (a) (T a) (T a) -> (T a)))
-(define (interleave lhs rhs)
-  ((inst bind (Option (Pair a (T a))) a)
-   ((inst msplit a) lhs)
-   (lambda ({obs : (Option (Pair a (T a)))})
-     (match obs
-       [#f rhs]
-       [(cons lhs-fst lhs-rest)
-        ((inst mplus a) 
-         ((inst unit a) lhs-fst)
-         ((inst interleave a) rhs lhs-rest))]))))
-
 (define-type Goal (U Disj2 Conj2 == Call-with-state))
 
-(define-type Stream (T State))
+(define-type Stream (U Bind Mplus Pause
+                       Null
+                       (Pair State Stream)))
+
+(: stream-ready? : Stream -> Boolean)
+(define (stream-ready? s)
+  (match s
+    ['() #t]
+    [(cons _1 _2) #t]
+    [_ #f]))
 
 (struct Disj2 [{lhs : Goal} {rhs : Goal}] #:transparent)
 (struct Conj2 [{lhs : Goal} {rhs : Goal}] #:transparent)
 (struct Call-with-state [{fn : (-> State Stream)}] #:transparent)
 (struct == [{lhs : Term} {rhs : Term}] #:transparent)
 
-(: goal->stream : State Goal -> Stream)
-(define (goal->stream state goal)
+(struct Bind [{stream : Stream} {goal : Goal}] #:transparent)
+(struct Mplus [{lhs : Stream} {rhs : Stream}] #:transparent)
+(struct Pause [{state : State} {goal : Goal}] #:transparent)
+
+(: step-goal : State Goal -> Stream)
+(define (step-goal state goal)
   (match goal
-    [(Disj2 lhs rhs) 
-     ((inst interleave State)
-      (goal->stream state lhs)
-      (goal->stream state rhs))]
-    [(Conj2 lhs rhs) 
-     ((inst bind State State)
-      (goal->stream state lhs)
-      (lambda ({st : State}) (goal->stream st rhs)))]
+    [(Disj2 lhs rhs) (Mplus (Pause state lhs)
+                            (Pause state rhs))]
+    [(Conj2 lhs rhs) (Bind (Pause state lhs)
+                           rhs)]
     [(== lhs rhs) 
      (match-define (State subst) state)
      (let ([subst* (unify lhs rhs subst)])
        (if subst*
-         ((inst unit State) (State subst*))
-         (inst mzero State)))]
+         (cons (State subst*) '())
+         '()))]
     [(Call-with-state f)
      (f state)]))
+
+(: step-stream : Stream -> Stream)
+(define (step-stream stream)
+  (match stream
+    [(Bind s g) 
+     (match s 
+       ['() '()]
+       [(cons fst '())
+        (Pause fst g)]
+       [(cons fst snd)
+        (Mplus (Pause fst g)
+               (Bind snd g))]
+       [_
+        (Bind (step-stream s) g)])]
+    [(Mplus lhs rhs) 
+       (match lhs
+         ['() rhs]
+         [(cons lhs-fst '())
+          (cons lhs-fst rhs)]
+         [(cons lhs-fst lhs-snd)
+          (cons lhs-fst (Mplus rhs lhs-snd))]
+         [_ (Mplus rhs (step-stream lhs))])]
+    [(Pause state goal) (step-goal state goal)]
+    [(or (? null?) 
+         (? pair?)) 
+     stream]))
 
 (define fail (== 0 1))
 
@@ -116,7 +92,7 @@
          (define sub (State-subst state))
          (let*-values ([{x sub} (subst-new-var sub)] 
                        ...) 
-           (goal->stream (State sub) (conj g0 g ...)))))]))
+           (Pause (State sub) (conj g0 g ...)))))]))
 
 (define-syntax conj
   (syntax-rules ()
@@ -144,17 +120,12 @@
                (lambda (x ...)
                  (conj g0 g ...)))))))]))
 
-(: stream->list : (All (a) (-> (T a) (Listof a))))
+(: stream->list : Stream -> (Listof State))
 (define (stream->list s)
-  (((inst msplit a) s) 
-   (lambda ({obs : (Option (Pair a (T a)))} _) 
-     (match obs
-       [#f null]
-       [(cons fst snd)
-        (cons fst ((inst stream->list a) snd))]))
-   (lambda () null)))
-
-(define state-stream->list (inst stream->list State))
+  (match s
+    ['() '()]
+    [(cons fst snd) (cons fst (stream->list snd))]
+    [_ (stream->list (step-stream s))]))
 
 (: reify : Term State -> Term)
 (define (reify term state) 
@@ -169,24 +140,13 @@
                g0 g ...))]
     [(_ q g0 g ...)
      (let* ([goal : Goal (fresh (q) g0 g ...)]
-            [stream : Stream (goal->stream *initial-state* goal)])
+            [stream : Stream (step-goal *initial-state* goal)])
        (let ([q (var 0)])
          (map (lambda ({s : State}) : Term (reify q s)) 
-              (state-stream->list stream))))]))
+              (stream->list stream))))]))
 
 (module+ test
   (require typed/rackunit)
-  (let* ([unit (inst unit Integer)]
-         [mplus (inst mplus Integer)]
-         [interleave (inst interleave Integer)]
-         [mzero (inst mzero Integer)]
-         [stream->list (inst stream->list Integer)])
-    (check-equal? 
-      (stream->list (interleave mzero (mplus (unit 1) (mplus (unit 2) (unit 3)))))
-      (list 1 2 3))
-    (check-equal? 
-      (stream->list (interleave (mplus (unit 1) (mplus (unit 2) (unit 3))) mzero))
-      (list 1 2 3)))
   (define-relation (append xs ys zs)
      (conde 
        [(== xs '()) (== ys zs)]
