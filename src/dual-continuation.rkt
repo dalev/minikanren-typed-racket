@@ -60,7 +60,7 @@
                f*)))
            b)))
     (: ffk : (FK (T Obs)))
-    (define (ffk) (lambda (k f) (k #f f)))
+    (define (ffk) ((inst unit Obs) #f))
     (t ssk ffk)))
 
 (: interleave : (All (a) (T a) (T a) -> (T a)))
