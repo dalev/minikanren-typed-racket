@@ -20,8 +20,11 @@ where terms are given by the type:
      (Pair Term Term)))
 ```
 To obtain a list of solutions, use:
+- `(run N x goal0 goal ...)`
+- `(run N (x ...) goal0 goal ...)`
 - `(run* x goal0 goal ...)` 
 - `(run* (x ...) goal0 goal ...)`
+where `N` is a non-negative integer bounding the number of desired solutions.  If you use `N = #f`, that's equivalent to using `run*`.
 
 This implementation can only be used by other _Typed_ Racket modules due to 
 [restrictions](https://docs.racket-lang.org/ts-guide/caveats.html#%28part._.Macros_and_compile-time_computation%29)

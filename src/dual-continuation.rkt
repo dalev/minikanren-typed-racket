@@ -5,7 +5,7 @@ of the backtracking monad.  It is an adaptation of Kiselyov et al's ICFP 2005
 paper "Backtracking, Interleaving, and Terminating Monad Transformers".
 |#
 (provide
-  run*
+  run run*
   fresh
   ==
   conde
@@ -220,30 +220,37 @@ paper "Backtracking, Interleaving, and Terminating Monad Transformers".
                (lambda (x ...)
                  (conj g0 g ...)))))))]))
 
-(: stream->list : (All (a) (-> (T a) (Listof a))))
-(define (stream->list s)
-  (((inst msplit a) s) 
-   (lambda ({obs : (Opt-Split a)} _) 
-     (match obs
-       [#f null]
-       [(cons fst snd)
-        (cons fst ((inst stream->list a) snd))]))
-   (lambda () null)))
+(: stream->list : (All (a) (-> (Option Integer) (T a) (Listof a))))
+(define (stream->list n s)
+  (if (and n (zero? n))
+    '()
+    (((inst msplit a) s) 
+     (lambda ({obs : (Opt-Split a)} _) 
+       (match obs
+         [#f null]
+         [(cons fst snd)
+          (cons fst ((inst stream->list a) (and n (- n 1)) snd))]))
+     (lambda () null))))
 
 (define state-stream->list (inst stream->list State))
 
-(define-syntax run*
+(define-syntax run
   (syntax-rules ()
-    [(_ (x ...) g0 g ...)
-     (run* q (fresh (x ...) 
-               (== q (list x ...)) 
-               g0 g ...))]
-    [(_ q g0 g ...)
+    [(_ N (x ...) g0 g ...)
+     (run N q (fresh (x ...) 
+                (== q (list x ...)) 
+                g0 g ...))]
+    [(_ N q g0 g ...)
      (let* ([goal : Goal (fresh (q) g0 g ...)]
             [stream : Stream (goal->stream (state-empty) goal)])
        (let ([q (var 0)])
          (map (lambda ({s : State}) : Term (reify q s)) 
-              (state-stream->list stream))))]))
+              (state-stream->list N stream))))]))
+
+(define-syntax run*
+  (syntax-rules ()
+    [(_ q g0 g ...)
+     (run #f q g0 g ...)]))
 
 (module+ test
   (require typed/rackunit)
@@ -254,10 +261,10 @@ paper "Backtracking, Interleaving, and Terminating Monad Transformers".
          [mzero (inst mzero Integer)]
          [stream->list (inst stream->list Integer)])
     (check-equal? 
-      (stream->list (interleave mzero (mplus (unit 1) (mplus (unit 2) (unit 3)))))
+      (stream->list #f (interleave mzero (mplus (unit 1) (mplus (unit 2) (unit 3)))))
       (list 1 2 3))
     (check-equal? 
-      (stream->list (interleave (mplus (unit 1) (mplus (unit 2) (unit 3))) mzero))
+      (stream->list #f (interleave (mplus (unit 1) (mplus (unit 2) (unit 3))) mzero))
       (list 1 2 3)))
 
   (define-relation (append xs ys zs)
@@ -267,6 +274,15 @@ paper "Backtracking, Interleaving, and Terminating Monad Transformers".
           (== (cons x xs*) xs)
           (== zs (cons x tmp))
           (append xs* ys tmp))]))
+
+  (check-equal? 
+    (run 2 q (append q q '(a b a b)))
+    (list '(a b)))
+
+  (check-equal? 
+    (run 2 (xs ys) (append xs ys '(1 2 3)))
+    (list (list '() '(1 2 3))
+          (list '(1) '(2 3))))
 
   (let ([ts (run* (xs ys) (append xs ys '(1 2 3)))])
     (check-equal?
