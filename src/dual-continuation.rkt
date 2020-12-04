@@ -83,6 +83,7 @@
     (define (ffk) ((inst unit Obs) #f))
     (t ssk ffk)))
 
+;; Like `mplus`, but fairly alternates between the lhs and rhs.
 (: interleave : (All (a) (T a) (T a) -> (T a)))
 (define (interleave lhs rhs)
   ((inst bind (Opt-Split a) a)
