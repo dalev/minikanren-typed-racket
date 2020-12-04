@@ -33,7 +33,7 @@ on how macros exported from typed modules can be used.
 
 On the plus side though, Typed Racket clients do not incur any contract checking overhead that would happen if they instead imported an untyped miniKanren implementation.
 
-We implement backtracking search using an adaptation of the dual-continuation 
+We implement backtracking search using an adaptation of the two-continuation 
 backtracking monad described by Kiselyov et al. in their ICFP 2005 paper 
 [Backtracking, Interleaving, and Terminating Monad Transformers](http://homes.sice.indiana.edu/ccshan/logicprog/LogicT-icfp2005.pdf).
 
