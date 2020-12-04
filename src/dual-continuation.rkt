@@ -43,10 +43,12 @@
   (lambda (k f)
     (lhs k (lambda () (rhs k f)))))
 
-(: msplit : (All (a) (-> (T a) (T (Option (Pair a (T a)))))))
+(define-type (Opt-Split a) (Option (Pair a (T a))))
+
+(: msplit : (All (a) (-> (T a) (T (Opt-Split a)))))
 (define msplit 
   (lambda #:forall (a) ({t : (T a)})
-    (define-type Obs (Option (Pair a (T a))))
+    (define-type Obs (Opt-Split a))
     (: ssk : (SK (T Obs) a))
     (define (ssk v {fk : (FK (T Obs))})
       (lambda (a b)
@@ -67,9 +69,9 @@
 
 (: interleave : (All (a) (T a) (T a) -> (T a)))
 (define (interleave lhs rhs)
-  ((inst bind (Option (Pair a (T a))) a)
+  ((inst bind (Opt-Split a) a)
    ((inst msplit a) lhs)
-   (lambda ({obs : (Option (Pair a (T a)))})
+   (lambda ({obs : (Opt-Split a)})
      (match obs
        [#f rhs]
        [(cons lhs-fst lhs-rest)
@@ -77,56 +79,64 @@
          ((inst unit a) lhs-fst)
          ((inst interleave a) rhs lhs-rest))]))))
 
-(define-type Goal (U Disj2 Conj2 == Call-with-state))
+;; Like (bind m g), but interleaves the streams (g a), for a in [m]
+(: bind/fair : (All (a b) (-> (T a) (-> a (T b)) (T b))))
+(define (bind/fair t g)
+  ((inst bind (Opt-Split a) b) 
+   ((inst msplit a) t) 
+   (lambda ({obs : (Opt-Split a)})
+     (match obs
+       [#f (inst mzero b)]
+       [(cons fst rest)
+        ((inst interleave b) (g fst) ((inst bind/fair a b) rest g))]))))
+
+(define-type Goal (-> State Stream))
 
 (define-type Stream (T State))
 
-(struct Disj2 [{lhs : Goal} {rhs : Goal}] #:transparent)
-(struct Conj2 [{lhs : Goal} {rhs : Goal}] #:transparent)
-(struct Call-with-state [{fn : (-> State Stream)}] #:transparent)
-(struct == [{lhs : Term} {rhs : Term}] #:transparent)
-
 (: goal->stream : State Goal -> Stream)
 (define (goal->stream state goal)
-  (match goal
-    [(Disj2 lhs rhs) 
-     ((inst interleave State)
-      (goal->stream state lhs)
-      (goal->stream state rhs))]
-    [(Conj2 lhs rhs) 
-     ((inst bind State State)
-      (goal->stream state lhs)
-      (lambda ({st : State}) (goal->stream st rhs)))]
-    [(== lhs rhs) 
-     (match-define (State subst) state)
-     (let ([subst* (unify lhs rhs subst)])
-       (if subst*
-         ((inst unit State) (State subst*))
-         (inst mzero State)))]
-    [(Call-with-state f)
-     (f state)]))
+  (goal state))
 
 (define fail (== 0 1))
 
 (define-syntax fresh
   (syntax-rules ()
     [(_ (x ...) g0 g ...)
-     (Call-with-state
-       (lambda ({state : State})
-         (define sub (State-subst state))
-         (let*-values ([{x sub} (subst-new-var sub)] 
-                       ...) 
-           (goal->stream (State sub) (conj g0 g ...)))))]))
+     (lambda ({state : State})
+       (define sub (State-subst state))
+       (let*-values ([{x sub} (subst-new-var sub)] 
+                     ...) 
+         (goal->stream (State sub) (conj g0 g ...))))]))
+
+(define-syntax ==
+  (syntax-rules ()
+    [(_ lhs rhs)
+     (lambda ({st : State})
+       (let ([sub (State-subst st)])
+         (let ([sub (unify lhs rhs sub)])
+           (if sub
+             ((inst unit State) (State sub))
+             (inst mzero State)))))]))
 
 (define-syntax conj
   (syntax-rules ()
     [(_ g) g]
-    [(_ g0 g ...) (Conj2 g0 (conj g ...))]))
+    [(_ g0 g ...) 
+     (lambda ({st : State})
+       ((inst bind/fair State State)
+        (goal->stream st g0) 
+        (lambda ({st : State})
+          (goal->stream st (conj g ...)))))]))
 
 (define-syntax disj
   (syntax-rules ()
     [(_ g) g]
-    [(_ g0 g ...) (Disj2 g0 (disj g ...))]))
+    [(_ g0 g ...) 
+     (lambda ({st : State})
+       ((inst interleave State)
+        (goal->stream st g0) 
+        (goal->stream st (disj g ...))))]))
 
 (define-syntax conde
   (syntax-rules ()
@@ -147,7 +157,7 @@
 (: stream->list : (All (a) (-> (T a) (Listof a))))
 (define (stream->list s)
   (((inst msplit a) s) 
-   (lambda ({obs : (Option (Pair a (T a)))} _) 
+   (lambda ({obs : (Opt-Split a)} _) 
      (match obs
        [#f null]
        [(cons fst snd)
@@ -176,6 +186,7 @@
 
 (module+ test
   (require typed/rackunit)
+
   (let* ([unit (inst unit Integer)]
          [mplus (inst mplus Integer)]
          [interleave (inst interleave Integer)]
@@ -187,6 +198,7 @@
     (check-equal? 
       (stream->list (interleave (mplus (unit 1) (mplus (unit 2) (unit 3))) mzero))
       (list 1 2 3)))
+
   (define-relation (append xs ys zs)
      (conde 
        [(== xs '()) (== ys zs)]
@@ -194,11 +206,12 @@
           (== (cons x xs*) xs)
           (== zs (cons x tmp))
           (append xs* ys tmp))]))
-    (let ([ts (run* (xs ys) (append xs ys '(1 2 3)))])
-      (check-equal?
-        ts
-        (list
-          (list '() '(1 2 3))
-          (list '(1) '(2 3))
-          (list '(1 2) '(3))
-          (list '(1 2 3) '())))))
+
+  (let ([ts (run* (xs ys) (append xs ys '(1 2 3)))])
+    (check-equal?
+      ts
+      (list
+        (list '() '(1 2 3))
+        (list '(1) '(2 3))
+        (list '(1 2) '(3))
+        (list '(1 2 3) '())))))
