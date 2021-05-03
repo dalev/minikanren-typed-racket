@@ -1,18 +1,18 @@
 #lang typed/racket/base
 (provide
-  sbral
-  sbral?
-  sbral-empty?
-  sbral-empty
-  sbral-cons
-  sbral-head
-  sbral-tail
-  sbral-set
-  sbral-ref
-  sbral-size
-  
-  sbral->list
-  list->sbral)
+ sbral
+ sbral?
+ sbral-empty?
+ sbral-empty
+ sbral-cons
+ sbral-head
+ sbral-tail
+ sbral-set
+ sbral-ref
+ sbral-size
+ 
+ sbral->list
+ list->sbral)
 
 (require racket/match)
 
@@ -48,8 +48,8 @@
       [(empty-forest) 'ok]
       [(cons-forest weight _ child-forest)
        (if (even? weight)
-         (error "sbral has an even weighted subtree")
-         (loop child-forest))])))
+           (error "sbral has an even weighted subtree")
+           (loop child-forest))])))
 
 (define sbral-empty (sbral 0 (empty-forest)))
 (: sbral-empty? : (All (t) (sbral t) -> Boolean))
@@ -109,7 +109,7 @@
 (define (list->sbral elements)
   (define forest
     (for/fold ([forest : (Forest t) (empty-forest)])
-      ([elt (in-list (reverse elements))])
+              ([elt (in-list (reverse elements))])
       (forest-add forest elt)))
   (sbral (length elements) forest))
 
@@ -129,10 +129,10 @@
   (match forest
     [(cons-forest w0 tree0 (cons-forest w1 tree1 sub-forest))
      (if (= w0 w1)
-       (cons-forest (+ 1 w0 w1)
-                    (branch elt tree0 tree1)
-                    sub-forest)
-       (cons-forest 1 (leaf elt) forest))]
+         (cons-forest (+ 1 w0 w1)
+                      (branch elt tree0 tree1)
+                      sub-forest)
+         (cons-forest 1 (leaf elt) forest))]
     [_ (cons-forest 1 (leaf elt) forest)]))
 
 (: forest-head : (All (t) (Forest t) -> t))
@@ -152,10 +152,10 @@
      (raise-argument-error 'forest-tail "nonempty forest" forest)]
     [(cons-forest 1 tree sub-forest)
      (if (branch? tree)
-       (error 'forest-tail 
-              "ill-formed forest: weight 1 with a non-leaf tree: ~a" 
-              forest)
-       sub-forest)]
+         (error 'forest-tail 
+                "ill-formed forest: weight 1 with a non-leaf tree: ~a" 
+                forest)
+         sub-forest)]
     [(cons-forest weight (branch elt t-even t-odd) sub-forest)
      (when (even? weight) 
        (error 'forest-tail "ill-formed forest: even weight: ~a" forest))
@@ -168,13 +168,13 @@
   (cond
     [(branch? t)
      (if (fxzero? i) 
-       (branch-val t)
-       (let [(w/2 (half w))]
-         (if (<= i w/2)
-           (tree-ref (branch-even t) w/2 (- i 1))
-           (tree-ref (branch-odd t)  w/2 (- (- i 1) w/2)))))]
+         (branch-val t)
+         (let [(w/2 (half w))]
+           (if (<= i w/2)
+               (tree-ref (branch-even t) w/2 (- i 1))
+               (tree-ref (branch-odd t)  w/2 (- (- i 1) w/2)))))]
     [else
-      (if (fxzero? i) (leaf-val t) #f)]))
+     (if (fxzero? i) (leaf-val t) #f)]))
 
 (: forest-ref : (All (t) (Forest t) Integer -> (Option t)))
 (define (forest-ref forest i)
@@ -182,27 +182,27 @@
     [(empty-forest) #f]
     [(cons-forest weight tree sub-forest)
      (if (< i weight)
-       (tree-ref tree weight i)
-       (forest-ref sub-forest (- i weight)))]))
+         (tree-ref tree weight i)
+         (forest-ref sub-forest (- i weight)))]))
 
 (: tree-set : (All (t) (Tree t) Integer Integer t -> (Tree t)))
 (define (tree-set t w i v)
   (match t
     [(branch t-val t-even t-odd)
      (if (fxzero? i) 
-       (branch v t-even t-odd)
-       (let [(w/2 (half w))]
-         (if (<= i w/2)
-           (branch t-val
-                   (tree-set t-even w/2 (- i 1) v)
-                   t-odd)
-           (branch t-val
-                   t-even
-                   (tree-set t-odd w/2 (- (- i 1) w/2) v)))))]
+         (branch v t-even t-odd)
+         (let [(w/2 (half w))]
+           (if (<= i w/2)
+               (branch t-val
+                       (tree-set t-even w/2 (- i 1) v)
+                       t-odd)
+               (branch t-val
+                       t-even
+                       (tree-set t-odd w/2 (- (- i 1) w/2) v)))))]
     [_ (if (fxzero? i)
-         (leaf v)
-         ;; CR dalev: throw range error
-         (raise-argument-error 'tree-set "index too big" i))]))
+           (leaf v)
+           ;; CR dalev: throw range error
+           (raise-argument-error 'tree-set "index too big" i))]))
 
 (: forest-set : (All (t) (Forest t) Integer t -> (Forest t)))
 (define (forest-set forest i v)
@@ -212,62 +212,66 @@
      (raise-argument-error 'forest-set "index too big" i)]
     [(cons-forest weight tree sub-forest)
      (if (< i weight)
-       (cons-forest weight 
-                    (tree-set tree weight i v) 
-                    sub-forest)
-       (cons-forest weight 
-                    tree 
-                    (forest-set sub-forest (- i weight) v)))]))
+         (cons-forest weight 
+                      (tree-set tree weight i v) 
+                      sub-forest)
+         (cons-forest weight 
+                      tree 
+                      (forest-set sub-forest (- i weight) v)))]))
 
 (module+ test
   (define sbral-4 
     (sbral-cons 'x (sbral-cons 'y (sbral-cons 'z (sbral-cons 'w sbral-empty)))))
-
+  
   (check-equal? (sbral-size sbral-4) 4)
   (check-not-exn (thunk (assert-invariant! sbral-4)))
-
+  
   (let* ([s sbral-4]
          [s (sbral-set s 0 42)]
          [s (sbral-set s 3 17)]
          [s (sbral-set s 2 (sbral-ref s 3))])
-
+    
     (check-equal? (sbral-ref s 0) 42)
     (check-equal? (sbral-ref s 1) 'z)
     (check-equal? (sbral-ref s 2) 17)
     (check-equal? (sbral-ref s 3) 17))
-
+  
   (define a-forest
     (cons-forest
-      15
-      (branch
-        'a
-        (branch 'b 
-                (branch 'c (leaf 'd) (leaf 'e)) 
-                (branch 'f (leaf 'g) (leaf 'h)))
-        (branch 'i 
-                (branch 'j (leaf 'k) (leaf 'l)) 
-                (branch 'm (leaf 'n) (leaf 'o))))
-      (empty-forest)))
-
+     15
+     (branch
+      'a
+      (branch 'b 
+              (branch 'c (leaf 'd) (leaf 'e)) 
+              (branch 'f (leaf 'g) (leaf 'h)))
+      (branch 'i 
+              (branch 'j (leaf 'k) (leaf 'l)) 
+              (branch 'm (leaf 'n) (leaf 'o))))
+     (empty-forest)))
+  
   (define sbral-15 (sbral 15 a-forest))
-
+  
   (check-not-exn (thunk (assert-invariant! sbral-15)))
-
+  
   (check-equal? (sbral-ref sbral-15 12) 'c)
   (check-equal? (sbral-head sbral-15) 'a)
   (check-equal? (sbral-head (sbral-tail sbral-15)) 'b)
-
+  
   (check-equal? (sbral->list sbral-15)
                 '(a b c d e f g h i j k l m n o))
   
   (define elements (sbral->list sbral-15))
-
+  
+  (: sbral=? : (All (t) (-> (sbral t) (sbral t) Boolean)))
+  (define (sbral=? a b)
+    (and (= (sbral-size a) (sbral-size b))
+         (for/and ([i (in-range (sbral-size a))])
+           (equal? (sbral-ref a i) (sbral-ref b i)))))
+  
   (let ([new-sbral-15 (list->sbral (sbral->list sbral-15))])
     (check-equal? (sbral-size sbral-15) (sbral-size new-sbral-15))
-    (check-equal? new-sbral-15 sbral-15))
-
+    (check-true (sbral=? new-sbral-15 sbral-15)))
+  
   (check-equal? (sbral->list (list->sbral elements))
                 elements)
   )
-
-
